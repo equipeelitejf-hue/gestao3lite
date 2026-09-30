@@ -1,14 +1,10 @@
-import { useSyncExternalStore } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { supabase } from "@/integrations/supabase/client";
 
 export type EntryKind = "oferta" | "terca" | "arena" | "familia";
-
-export type Person = { id: string; name: string; parentId: string | null; level: 0 | 1 | 2 };
-export type Entry = { id: string; personId: string; month: string; date: string; kind: EntryKind; value: number; note: string };
-export type NetworkState = {
-  entries: Entry[];
-  personalGoals: Record<string, Record<string, number>>; // month -> personId -> R$
-  teamGoals: Record<string, number>; // month -> R$
-};
+export type Member = { id: string; user_id: string | null; parent_id: string | null; name: string; email: string; level: number };
+export type Entry = { id: string; member_id: string; date: string; month: string; kind: EntryKind; value: number; note: string };
 export type Totals = { oferta: number; terca: number; arena: number; familia: number; arregimentacao: number; membresia: number };
 
 export const KIND_LABEL: Record<EntryKind, string> = {
@@ -21,171 +17,167 @@ export const KIND_LABEL: Record<EntryKind, string> = {
 /** Peso de cada culto na membresia. */
 export const MEMBRESIA_WEIGHT = { terca: 0.3, arena: 0.5, familia: 1 } as const;
 
-export const MONTHS = [
-  { id: "2026-08", label: "Agosto de 2026" },
-  { id: "2026-09", label: "Setembro de 2026" },
-  { id: "2026-10", label: "Outubro de 2026" },
-];
-export const CURRENT_MONTH = "2026-09";
-
 export function membresia(t: { terca: number; arena: number; familia: number }) {
   return Math.round((t.terca * MEMBRESIA_WEIGHT.terca + t.arena * MEMBRESIA_WEIGHT.arena + t.familia * MEMBRESIA_WEIGHT.familia) * 10) / 10;
 }
 
 export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 export const num = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+export const pct = (v: number, goal: number) => (goal > 0 ? Math.round((v / goal) * 100) : 0);
+export const initials = (name: string) => name.replace(/^Pr\.?\s+/i, "").split(/\s+/).filter(Boolean).map((s) => s[0]).slice(0, 2).join("").toUpperCase() || "?";
 
-// ---------- Pessoas (fixas, determinísticas) ----------
-const FIRST = ["Lucas", "Mariana", "Pedro", "Ana", "Rafael", "Juliana", "Mateus", "Camila", "Tiago", "Beatriz", "João", "Larissa", "Felipe", "Gabriela", "Daniel", "Isabela", "Samuel", "Letícia", "André", "Priscila", "Bruno", "Raquel", "Caio", "Débora"];
-const LAST = ["Ribeiro", "Costa", "Santos", "Oliveira", "Almeida", "Souza", "Ferreira", "Lima", "Rocha", "Carvalho", "Martins", "Barbosa", "Gomes", "Moreira", "Cardoso", "Teixeira", "Mendes", "Pires", "Nunes", "Araújo"];
-
-function buildPeople(): Person[] {
-  const list: Person[] = [{ id: "root", name: "Pr. Gabriel", parentId: null, level: 0 }];
-  for (let i = 0; i < 12; i++) {
-    const id = `d${i + 1}`;
-    list.push({ id, name: `${FIRST[i]} ${LAST[i]}`, parentId: "root", level: 1 });
-    for (let j = 0; j < 12; j++) {
-      const k = i * 12 + j;
-      list.push({ id: `${id}-${j + 1}`, name: `${FIRST[(k * 7 + 3) % FIRST.length]} ${LAST[(k * 11 + 5) % LAST.length]}`, parentId: id, level: 2 });
-    }
+const MONTH_NAMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+export function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+export function monthLabel(id: string) {
+  const [y, m] = id.split("-");
+  return `${MONTH_NAMES[Number(m) - 1] ?? ""} de ${y}`;
+}
+/** 11 meses anteriores, o atual e o próximo. */
+export function monthOptions() {
+  const d = new Date();
+  const out: { id: string; label: string }[] = [];
+  for (let i = 1; i >= -11; i--) {
+    const x = new Date(d.getFullYear(), d.getMonth() + i, 1);
+    const id = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}`;
+    out.push({ id, label: monthLabel(id) });
   }
-  return list;
+  return out;
 }
+export const today = () => new Date().toISOString().slice(0, 10);
 
-export const PEOPLE = buildPeople();
-export const PERSON = Object.fromEntries(PEOPLE.map((p) => [p.id, p])) as Record<string, Person>;
-export const CHILDREN: Record<string, Person[]> = {};
-for (const p of PEOPLE) if (p.parentId) (CHILDREN[p.parentId] ??= []).push(p);
-export const person = (id: string): Person => PERSON[id] ?? PEOPLE[0]!;
-export const childrenOf = (id: string) => CHILDREN[id] ?? [];
-export function pathOf(id: string) {
-  const path: Person[] = [];
-  let cur: Person | undefined = PERSON[id];
-  while (cur) { path.unshift(cur); cur = cur.parentId ? PERSON[cur.parentId] : undefined; }
-  return path;
-}
-export const initials = (name: string) => name.replace("Pr. ", "").split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
-
-// ---------- Dados de demonstração ----------
-function rand(seed: number) { const x = Math.sin(seed) * 10000; return x - Math.floor(x); }
-
-function buildSeed(): NetworkState {
-  const entries: Entry[] = [];
-  const personalGoals: NetworkState["personalGoals"] = {};
-  const teamGoals: NetworkState["teamGoals"] = {};
-  let n = 0;
-  for (const [mi, month] of ["2026-08", "2026-09"].entries()) {
-    personalGoals[month] = {};
-    let sum = 0;
-    for (const [pi, p] of PEOPLE.entries()) {
-      if (p.level === 0) continue;
-      const s = pi * 13 + mi * 101;
-      const goal = Math.round((150 + rand(s) * 350) / 10) * 10;
-      personalGoals[month][p.id] = goal;
-      sum += goal;
-      const day = (d: number) => `${month}-${String(d).padStart(2, "0")}`;
-      const push = (kind: EntryKind, value: number, d: number) => value > 0 && entries.push({ id: `seed-${n++}`, personId: p.id, month, date: day(d), kind, value, note: "" });
-      push("oferta", Math.round(goal * (0.5 + rand(s + 1) * 0.6) / 10) * 10, 5 + Math.floor(rand(s + 2) * 20));
-      push("terca", Math.floor(rand(s + 3) * 6), 1 + Math.floor(rand(s + 4) * 27));
-      push("arena", Math.floor(rand(s + 5) * 5), 1 + Math.floor(rand(s + 6) * 27));
-      push("familia", Math.floor(rand(s + 7) * 5) + 1, 1 + Math.floor(rand(s + 8) * 27));
-    }
-    teamGoals[month] = Math.round(sum * 1.05 / 1000) * 1000;
-  }
-  return { entries, personalGoals, teamGoals };
-}
-
-export const SEED = buildSeed();
-
-// ---------- Store ----------
-const KEY = "3lite-network-v1";
-let state: NetworkState = SEED;
-const listeners = new Set<() => void>();
-let loaded = false;
-
-function emit(next: NetworkState) {
-  state = next;
-  cache.clear();
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* ignore */ }
-  listeners.forEach((l) => l());
-}
-
-/** Chamar após a hidratação para carregar dados salvos. */
-export function loadSaved() {
-  if (loaded) return;
-  loaded = true;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) { state = JSON.parse(raw) as NetworkState; cache.clear(); listeners.forEach((l) => l()); }
-  } catch { /* ignore */ }
-}
-
-export function useNetwork() {
-  return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l); },
-    () => state,
-    () => SEED,
-  );
-}
-
-export const actions = {
-  addEntry(e: Omit<Entry, "id" | "month">) {
-    emit({ ...state, entries: [{ ...e, id: `e-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, month: e.date.slice(0, 7) }, ...state.entries] });
-  },
-  updateEntry(id: string, e: Omit<Entry, "id" | "month">) {
-    emit({ ...state, entries: state.entries.map((x) => (x.id === id ? { ...e, id, month: e.date.slice(0, 7) } : x)) });
-  },
-  deleteEntry(id: string) { emit({ ...state, entries: state.entries.filter((x) => x.id !== id) }); },
-  setPersonalGoal(month: string, personId: string, value: number) {
-    emit({ ...state, personalGoals: { ...state.personalGoals, [month]: { ...state.personalGoals[month], [personId]: value } } });
-  },
-  setTeamGoal(month: string, value: number) { emit({ ...state, teamGoals: { ...state.teamGoals, [month]: value } }); },
-  reset() { emit(SEED); },
-};
-
-// ---------- Cálculos ----------
-const cache = new Map<string, unknown>();
 const empty = (): Totals => ({ oferta: 0, terca: 0, arena: 0, familia: 0, arregimentacao: 0, membresia: 0 });
 
-function ownIndex(s: NetworkState, month: string) {
-  const key = `own:${month}`;
-  if (cache.has(key) && cache.get("state") === s) return cache.get(key) as Record<string, Totals>;
-  if (cache.get("state") !== s) { cache.clear(); cache.set("state", s); }
-  const idx: Record<string, Totals> = {};
-  for (const e of s.entries) {
-    if (e.month !== month) continue;
-    const t = (idx[e.personId] ??= empty());
-    t[e.kind] += e.value;
+/** Rede visível para o usuário com cálculos de soma na árvore. */
+export class Network {
+  byId = new Map<string, Member>();
+  kids = new Map<string, Member[]>();
+  own = new Map<string, Totals>();
+  goals = new Map<string, number>();
+  private treeCache = new Map<string, Totals>();
+  private goalCache = new Map<string, number>();
+
+  constructor(public members: Member[], public entries: Entry[], goals: { member_id: string; value: number }[], public teamGoal: number) {
+    for (const m of members) this.byId.set(m.id, m);
+    for (const m of [...members].sort((a, b) => a.name.localeCompare(b.name))) {
+      if (m.parent_id && this.byId.has(m.parent_id)) {
+        const list = this.kids.get(m.parent_id) ?? [];
+        list.push(m);
+        this.kids.set(m.parent_id, list);
+      }
+    }
+    for (const e of entries) {
+      const t = this.own.get(e.member_id) ?? empty();
+      t[e.kind] += Number(e.value);
+      this.own.set(e.member_id, t);
+    }
+    for (const t of this.own.values()) { t.arregimentacao = t.terca + t.arena + t.familia; t.membresia = membresia(t); }
+    for (const g of goals) this.goals.set(g.member_id, Number(g.value));
   }
-  for (const t of Object.values(idx)) { t.arregimentacao = t.terca + t.arena + t.familia; t.membresia = membresia(t); }
-  cache.set(key, idx);
-  return idx;
-}
 
-export function ownTotals(s: NetworkState, month: string, id: string): Totals {
-  return ownIndex(s, month)[id] ?? empty();
-}
-
-/** Resultado da pessoa + de toda a rede abaixo dela. */
-export function treeTotals(s: NetworkState, month: string, id: string): Totals {
-  const key = `tree:${month}:${id}`;
-  ownIndex(s, month);
-  if (cache.has(key)) return cache.get(key) as Totals;
-  const t = { ...ownTotals(s, month, id) };
-  for (const c of childrenOf(id)) {
-    const ct = treeTotals(s, month, c.id);
-    t.oferta += ct.oferta; t.terca += ct.terca; t.arena += ct.arena; t.familia += ct.familia;
+  person(id: string) { return this.byId.get(id); }
+  childrenOf(id: string) { return this.kids.get(id) ?? []; }
+  goalOf(id: string) { return this.goals.get(id) ?? 0; }
+  ownTotals(id: string) { return this.own.get(id) ?? empty(); }
+  entriesOf(id: string) { return this.entries.filter((e) => e.member_id === id).sort((a, b) => b.date.localeCompare(a.date)); }
+  pathOf(id: string) {
+    const path: Member[] = [];
+    let cur = this.byId.get(id);
+    while (cur) { path.unshift(cur); cur = cur.parent_id ? this.byId.get(cur.parent_id) : undefined; }
+    return path;
   }
-  t.arregimentacao = t.terca + t.arena + t.familia;
-  t.membresia = membresia(t);
-  cache.set(key, t);
-  return t;
+  subtreeSize(id: string): number { return this.childrenOf(id).reduce((a, c) => a + 1 + this.subtreeSize(c.id), 0); }
+  treeTotals(id: string): Totals {
+    const hit = this.treeCache.get(id);
+    if (hit) return hit;
+    const t = { ...this.ownTotals(id) };
+    for (const c of this.childrenOf(id)) {
+      const ct = this.treeTotals(c.id);
+      t.oferta += ct.oferta; t.terca += ct.terca; t.arena += ct.arena; t.familia += ct.familia;
+    }
+    t.arregimentacao = t.terca + t.arena + t.familia;
+    t.membresia = membresia(t);
+    this.treeCache.set(id, t);
+    return t;
+  }
+  treeGoal(id: string): number {
+    const hit = this.goalCache.get(id);
+    if (hit !== undefined) return hit;
+    const v = this.goalOf(id) + this.childrenOf(id).reduce((a, c) => a + this.treeGoal(c.id), 0);
+    this.goalCache.set(id, v);
+    return v;
+  }
 }
 
-/** Meta Parceiro de Deus da pessoa + da rede abaixo dela. */
-export function treeGoal(s: NetworkState, month: string, id: string): number {
-  const own = s.personalGoals[month]?.[id] ?? 0;
-  return own + childrenOf(id).reduce((acc, c) => acc + treeGoal(s, month, c.id), 0);
+// ---------------- Dados ----------------
+export type Me = { member: Member | null; isAdmin: boolean; email: string };
+
+export function useMe() {
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: async (): Promise<Me> => {
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
+      if (!user) throw new Error("Sessão expirada");
+      const name = typeof user.user_metadata?.["name"] === "string" ? (user.user_metadata["name"] as string) : "";
+      const { data: id, error } = await supabase.rpc("claim_membership", { _name: name });
+      if (error) throw error;
+      let member: Member | null = null;
+      if (id) {
+        const { data } = await supabase.from("members").select("id, user_id, parent_id, name, email, level").eq("id", id).maybeSingle();
+        member = data;
+      }
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      return { member, isAdmin: !!roles?.some((r) => r.role === "admin"), email: user.email ?? "" };
+    },
+  });
 }
 
-export const pct = (v: number, goal: number) => (goal > 0 ? Math.round((v / goal) * 100) : 0);
+export function useNetwork(month: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["network", month],
+    enabled,
+    queryFn: async () => {
+      const [members, entries, goals, team] = await Promise.all([
+        supabase.from("members").select("id, user_id, parent_id, name, email, level"),
+        supabase.from("entries").select("id, member_id, date, month, kind, value, note").eq("month", month),
+        supabase.from("personal_goals").select("member_id, value").eq("month", month),
+        supabase.from("team_goals").select("value").eq("month", month).maybeSingle(),
+      ]);
+      const err = members.error ?? entries.error ?? goals.error ?? team.error;
+      if (err) throw err;
+      return new Network(members.data ?? [], (entries.data ?? []) as Entry[], goals.data ?? [], Number(team.data?.value ?? 0));
+    },
+  });
+}
+
+function friendly(e: unknown) {
+  const msg = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : "";
+  if (msg.includes("12 discípulos")) return "Cada líder pode ter no máximo 12 discípulos.";
+  if (msg.includes("duplicate") || msg.includes("unique")) return "Este e-mail já está cadastrado na rede.";
+  if (msg.includes("e-mail de quem já criou")) return "Não é possível alterar o e-mail de quem já criou a conta.";
+  if (msg.includes("row-level security")) return "Você não tem permissão para esta ação.";
+  return "Não foi possível salvar. Tente novamente.";
+}
+
+export function useActions(onNotice: (m: string) => void) {
+  const qc = useQueryClient();
+  const done = (msg: string) => () => { void qc.invalidateQueries({ queryKey: ["network"] }); onNotice(msg); };
+  const fail = (e: unknown) => onNotice(friendly(e));
+  const run = <T,>(fn: (v: T) => PromiseLike<{ error: unknown }>, msg: string) =>
+    useMutation({ mutationFn: async (v: T) => { const { error } = await fn(v); if (error) throw error; }, onSuccess: done(msg), onError: fail });
+
+  return {
+    addEntry: run((v: { member_id: string; date: string; kind: EntryKind; value: number; note: string }) => supabase.from("entries").insert(v), "Lançamento registrado."),
+    updateEntry: run((v: { id: string; date: string; kind: EntryKind; value: number; note: string }) => supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, note: v.note }).eq("id", v.id), "Lançamento atualizado."),
+    deleteEntry: run((id: string) => supabase.from("entries").delete().eq("id", id), "Lançamento excluído."),
+    setGoal: run((v: { member_id: string; month: string; value: number }) => supabase.from("personal_goals").upsert(v), "Meta salva."),
+    setTeamGoal: run((v: { month: string; value: number }) => supabase.from("team_goals").upsert(v), "Meta da equipe salva."),
+    addMember: run((v: { parent_id: string; name: string; email: string }) => supabase.from("members").insert(v), "Discípulo cadastrado."),
+    updateMember: run((v: { id: string; name: string; email: string }) => supabase.from("members").update({ name: v.name, email: v.email }).eq("id", v.id), "Cadastro atualizado."),
+    deleteMember: run((id: string) => supabase.from("members").delete().eq("id", id), "Discípulo removido."),
+  };
+}
+export type Actions = ReturnType<typeof useActions>;

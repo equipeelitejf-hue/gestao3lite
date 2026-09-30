@@ -11,6 +11,6 @@
 
 ## Project architecture
 
-- Keep the first-stage leader and disciple demo in one client dashboard so profile switching remains instant and backend-free.
+- The dashboard renders by signed-in member (no profile switcher); the first account to sign up becomes the root leader via `claim_membership` RPC.
 - Use uploaded brand assets through Lovable Assets pointers; the favicon is the only brand file kept directly in `public/`.
-- Network data, goals and entries live in `src/lib/network.ts` (client store persisted to localStorage) so the demo stays backend-free until Cloud is added.
+- Network data comes from Cloud tables (members, entries, personal_goals, team_goals) with subtree RLS; tree sums are computed client-side in `src/lib/network.ts` `Network` class to keep queries simple.
