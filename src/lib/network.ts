@@ -84,7 +84,7 @@ function buildSeed(): NetworkState {
       personalGoals[month][p.id] = goal;
       sum += goal;
       const day = (d: number) => `${month}-${String(d).padStart(2, "0")}`;
-      const push = (kind: EntryKind, value: number, d: number) => entries.push({ id: `seed-${n++}`, personId: p.id, month, date: day(d), kind, value, note: "" });
+      const push = (kind: EntryKind, value: number, d: number) => value > 0 && entries.push({ id: `seed-${n++}`, personId: p.id, month, date: day(d), kind, value, note: "" });
       push("oferta", Math.round(goal * (0.5 + rand(s + 1) * 0.6) / 10) * 10, 5 + Math.floor(rand(s + 2) * 20));
       push("terca", Math.floor(rand(s + 3) * 6), 1 + Math.floor(rand(s + 4) * 27));
       push("arena", Math.floor(rand(s + 5) * 5), 1 + Math.floor(rand(s + 6) * 27));
