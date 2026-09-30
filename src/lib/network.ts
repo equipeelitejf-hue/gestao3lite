@@ -166,7 +166,7 @@ export function useActions(onNotice: (m: string) => void) {
   const qc = useQueryClient();
   const done = (msg: string) => () => { void qc.invalidateQueries({ queryKey: ["network"] }); onNotice(msg); };
   const fail = (e: unknown) => onNotice(friendly(e));
-  const run = <T,>(fn: (v: T) => Promise<{ error: unknown }>, msg: string) =>
+  const run = <T,>(fn: (v: T) => PromiseLike<{ error: unknown }>, msg: string) =>
     useMutation({ mutationFn: async (v: T) => { const { error } = await fn(v); if (error) throw error; }, onSuccess: done(msg), onError: fail });
 
   return {
