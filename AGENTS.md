@@ -8,3 +8,8 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Project architecture
+
+- Keep the first-stage leader and disciple demo in one client dashboard so profile switching remains instant and backend-free.
+- Use uploaded brand assets through Lovable Assets pointers; the favicon is the only brand file kept directly in `public/`.
