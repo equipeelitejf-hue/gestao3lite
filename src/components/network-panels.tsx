@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
-  KIND_LABEL, MEMBRESIA_WEIGHT, PEOPLE, PERSON, actions, brl, childrenOf, initials, num, ownTotals, pathOf, pct, treeGoal, treeTotals, useNetwork,
+  KIND_LABEL, MEMBRESIA_WEIGHT, PEOPLE, person, actions, brl, childrenOf, initials, num, ownTotals, pathOf, pct, treeGoal, treeTotals, useNetwork,
   type Entry, type EntryKind, type Totals,
 } from "@/lib/network";
 import { cn } from "@/lib/utils";
@@ -30,7 +30,7 @@ export function NetworkTree({ month, onSelect }: { month: string; onSelect: (id:
   const matches = useMemo(() => (q ? PEOPLE.filter((p) => p.name.toLowerCase().includes(q)) : []), [q]);
 
   function Row({ id, depth }: { id: string; depth: number }) {
-    const p = PERSON[id];
+    const p = person(id);
     const kids = childrenOf(id);
     const t = treeTotals(s, month, id);
     const goal = treeGoal(s, month, id);
@@ -72,7 +72,7 @@ export function NetworkTree({ month, onSelect }: { month: string; onSelect: (id:
 // ---------------- Painel lateral ----------------
 export function MemberSheet({ id, month, onClose }: { id: string | null; month: string; onClose: () => void }) {
   const s = useNetwork();
-  const p = id ? PERSON[id] : null;
+  const p = id ? person(id) : null;
   return <Sheet open={!!p} onOpenChange={(o) => !o && onClose()}>
     <SheetContent className="w-full overflow-y-auto sm:max-w-md">
       {p && <>
@@ -156,7 +156,7 @@ export function EntryForm({ personId, month, editing, onDone }: { personId: stri
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const r = entrySchema.safeParse({ ...form, value: form.value.replace(",", ".") });
-    if (!r.success) { setError(r.error.issues[0].message); return; }
+    if (!r.success) { setError(r.error.issues[0]?.message ?? "Dados inválidos"); return; }
     if (!isMoney && !Number.isInteger(r.data.value)) { setError("A arregimentação deve ser um número inteiro de pessoas"); return; }
     const data = { ...r.data, personId };
     if (initial) actions.updateEntry(initial.id, data); else actions.addEntry(data);

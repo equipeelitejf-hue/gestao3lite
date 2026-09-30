@@ -56,6 +56,7 @@ export const PEOPLE = buildPeople();
 export const PERSON = Object.fromEntries(PEOPLE.map((p) => [p.id, p])) as Record<string, Person>;
 export const CHILDREN: Record<string, Person[]> = {};
 for (const p of PEOPLE) if (p.parentId) (CHILDREN[p.parentId] ??= []).push(p);
+export const person = (id: string): Person => PERSON[id] ?? PEOPLE[0]!;
 export const childrenOf = (id: string) => CHILDREN[id] ?? [];
 export function pathOf(id: string) {
   const path: Person[] = [];

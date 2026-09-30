@@ -19,7 +19,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { EntryForm, EntryList, GoalsEditor, MemberSheet, NetworkTree, Bar, Avatar } from "@/components/network-panels";
-import { CURRENT_MONTH, MONTHS, PEOPLE, PERSON, actions, brl, childrenOf, loadSaved, num, ownTotals, pct, treeGoal, treeTotals, useNetwork, type Entry, KIND_LABEL } from "@/lib/network";
+import { CURRENT_MONTH, MONTHS, PEOPLE, person, actions, brl, childrenOf, loadSaved, num, ownTotals, pct, treeGoal, treeTotals, useNetwork, type Entry, KIND_LABEL } from "@/lib/network";
 
 import logoBlue from "@/assets/logotipo-azul.svg.asset.json";
 import symbolOrange from "@/assets/simbolo-laranja.svg.asset.json";
@@ -70,7 +70,7 @@ export function MinisterialDashboard() {
 
   const user = useMemo(() => {
     if (profile === "leader") return { name: "Pr. Gabriel", role: "Líder Principal", initials: "GG" };
-    const p = PERSON[discipleId];
+    const p = person(discipleId);
     return { name: p.name, role: p.level === 1 ? "Discípulo direto" : "Discípulo (rede)", initials: p.name.split(" ").map((x) => x[0]).join("").slice(0, 2) };
   }, [profile, discipleId]);
 
@@ -166,7 +166,7 @@ function DiscipleSelect({ value, options, onChange }: { value: string; options: 
   return <label className="mt-2 block px-3 pb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Simular discípulo
     <select value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 h-10 w-full rounded-md border border-input bg-card px-2 text-xs normal-case tracking-normal text-foreground">
       <optgroup label="Discípulos diretos (12)">{options.filter((o) => o.level === 1).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</optgroup>
-      <optgroup label="Rede (144)">{options.filter((o) => o.level === 2).map((o) => <option key={o.id} value={o.id}>{o.name} — equipe de {PERSON[o.parentId!].name}</option>)}</optgroup>
+      <optgroup label="Rede (144)">{options.filter((o) => o.level === 2).map((o) => <option key={o.id} value={o.id}>{o.name} — equipe de {person(o.parentId!).name}</option>)}</optgroup>
     </select>
   </label>;
 }
@@ -208,21 +208,21 @@ function LeaderView({ month, onExport, onSelect, onTab }: { month: string; onExp
         </div>
         <div className="mt-4 divide-y divide-border">{directs.map(({ p, t: dt, g }) => <button key={p.id} onClick={() => onSelect(p.id)} className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 py-3 text-left hover:bg-secondary"><Avatar name={p.name} /><div className="min-w-0"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-medium">{p.name}</p><span className="text-xs text-muted-foreground">{pct(dt.oferta, g)}%</span></div><Bar value={pct(dt.oferta, g)} className="mt-2" /></div><span className="w-20 text-right text-xs"><strong className="block text-primary">{num(dt.membresia)}</strong><span className="text-[10px] text-muted-foreground">membresia</span></span></button>)}</div>
       </section>
-      <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title="Lançamentos recentes" subtitle="Movimento da rede no mês" /><div className="mt-6 space-y-5">{recent.length ? recent.map((e) => <div key={e.id} className="flex gap-3"><div className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary"><Clock3 className="size-3.5" /></div><div><p className="text-sm leading-5"><span className="font-medium">{PERSON[e.personId].name}</span> lançou {e.kind === "oferta" ? brl(e.value) : `${e.value} pessoas`}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>{e.date.split("-").reverse().join("/")}</span><span className="size-1 rounded-full bg-border" /><span>{KIND_LABEL[e.kind]}</span></div></div></div>) : <p className="text-sm text-muted-foreground">Sem lançamentos neste mês.</p>}</div></section>
+      <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title="Lançamentos recentes" subtitle="Movimento da rede no mês" /><div className="mt-6 space-y-5">{recent.length ? recent.map((e) => <div key={e.id} className="flex gap-3"><div className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary"><Clock3 className="size-3.5" /></div><div><p className="text-sm leading-5"><span className="font-medium">{person(e.personId).name}</span> lançou {e.kind === "oferta" ? brl(e.value) : `${e.value} pessoas`}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>{e.date.split("-").reverse().join("/")}</span><span className="size-1 rounded-full bg-border" /><span>{KIND_LABEL[e.kind]}</span></div></div></div>) : <p className="text-sm text-muted-foreground">Sem lançamentos neste mês.</p>}</div></section>
     </div>
   </div>;
 }
 
 function DiscipleView({ id, month, onTab }: { id: string; month: string; onTab: (t: Tab) => void }) {
   const s = useNetwork();
-  const p = PERSON[id];
+  const p = person(id);
   const own = ownTotals(s, month, id);
   const goal = s.personalGoals[month]?.[id] ?? 0;
   const progress = pct(own.oferta, goal);
   const kids = childrenOf(id);
   const tree = treeTotals(s, month, id);
   return <div className="animate-fade-in">
-    <PageHeading eyebrow="Meu painel" title={`Olá, ${p.name.split(" ")[0]}`} description={`Líder direto: ${PERSON[p.parentId!].name}`} action={<Button onClick={() => onTab("entries")}><Plus className="size-4" />Novo lançamento</Button>} />
+    <PageHeading eyebrow="Meu painel" title={`Olá, ${p.name.split(" ")[0]}`} description={`Líder direto: ${person(p.parentId!).name}`} action={<Button onClick={() => onTab("entries")}><Plus className="size-4" />Novo lançamento</Button>} />
     <section className="relative mt-8 overflow-hidden rounded-lg bg-navy p-6 text-primary-foreground sm:p-8">
       <img src={symbolOrange.url} alt="" className="absolute -bottom-20 -right-8 h-72 w-auto opacity-10" />
       <div className="relative grid items-center gap-8 md:grid-cols-[1fr_auto]">
@@ -260,7 +260,7 @@ function Sidebar({ tabs, tab, onTab, month, onReset }: { tabs: { id: Tab; label:
 }
 
 function PageHeading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action: React.ReactNode }) { return <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">{eyebrow}</p><h1 className="mt-2 text-3xl font-bold text-navy sm:text-4xl">{title}</h1><p className="mt-2 font-book text-sm text-muted-foreground sm:text-base">{description}</p></div><div className="self-start sm:self-auto">{action}</div></div>; }
-function SectionHeading({ title, subtitle, action, onAction }: { title: string; subtitle: string; action?: string; onAction?: () => void }) { return <div className="flex items-start justify-between gap-4"><div><h2 className="text-base font-bold text-navy sm:text-lg">{title}</h2><p className="mt-1 text-xs font-book text-muted-foreground">{subtitle}</p></div>{action && <button onClick={onAction} className="text-xs font-medium text-primary hover:underline">{action}</button>}</div>; }
+function SectionHeading({ title, subtitle, action, onAction }: { title: string; subtitle: string; action?: string | undefined; onAction?: () => void }) { return <div className="flex items-start justify-between gap-4"><div><h2 className="text-base font-bold text-navy sm:text-lg">{title}</h2><p className="mt-1 text-xs font-book text-muted-foreground">{subtitle}</p></div>{action && <button onClick={onAction} className="text-xs font-medium text-primary hover:underline">{action}</button>}</div>; }
 function SummaryCard({ label, value, note, icon: Icon }: { label: string; value: string; note: string; icon: typeof UsersRound }) { return <article className="rounded-lg border border-border bg-card p-5 shadow-card transition-transform hover:-translate-y-0.5"><div className="flex items-start justify-between"><p className="text-xs font-medium text-muted-foreground">{label}</p><span className="grid size-9 place-items-center rounded-md bg-primary-soft text-primary"><Icon className="size-4" /></span></div><strong className="mt-4 block text-3xl font-bold text-navy">{value}</strong><p className="mt-2 text-[11px] text-muted-foreground">{note}</p></article>; }
 function HierarchyNode({ value, label, featured }: { value: string; label: string; featured?: boolean }) { return <div className="text-center"><span className={cn("mx-auto grid size-12 place-items-center rounded-full text-sm font-bold sm:size-14", featured ? "bg-primary text-primary-foreground" : "bg-card text-navy shadow-sm")}>{value}</span><p className="mt-2 text-[10px] font-medium uppercase text-muted-foreground">{label}</p></div>; }
 function MiniStat({ value, label }: { value: string; label: string }) { return <div className="rounded-md bg-secondary p-3"><strong className="text-xl font-bold text-navy">{value}</strong><p className="mt-1 text-[10px] text-muted-foreground">{label}</p></div>; }
