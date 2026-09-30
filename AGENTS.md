@@ -13,3 +13,4 @@
 
 - Keep the first-stage leader and disciple demo in one client dashboard so profile switching remains instant and backend-free.
 - Use uploaded brand assets through Lovable Assets pointers; the favicon is the only brand file kept directly in `public/`.
+- Network data, goals and entries live in `src/lib/network.ts` (client store persisted to localStorage) so the demo stays backend-free until Cloud is added.
