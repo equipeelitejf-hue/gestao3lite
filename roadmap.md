@@ -1,4 +1,4 @@
 # Roadmap
-- [ ] Incorporar identidade visual e splash screen
-- [ ] Construir painéis alternáveis de Líder e Discípulo
-- [ ] Validar desktop, celular e funcionamento
+- [x] Incorporar identidade visual e splash screen
+- [x] Construir painéis alternáveis de Líder e Discípulo
+- [x] Validar desktop, celular e funcionamento
