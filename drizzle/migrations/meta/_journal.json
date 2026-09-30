@@ -15,6 +15,13 @@
       "when": 1790777420319,
       "tag": "0001_members_guard_user_link",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790777742818,
+      "tag": "0002_revoke_anon_helpers",
+      "breakpoints": true
     }
   ]
 }

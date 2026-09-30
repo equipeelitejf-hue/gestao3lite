@@ -1,0 +1,10 @@
+revoke execute on function public.has_role(uuid, app_role) from public, anon;
+revoke execute on function public.my_member_id() from public, anon;
+revoke execute on function public.my_leader_id() from public, anon;
+revoke execute on function public.in_my_subtree(uuid) from public, anon;
+revoke execute on function public.leads_member(uuid) from public, anon;
+grant execute on function public.has_role(uuid, app_role) to authenticated;
+grant execute on function public.my_member_id() to authenticated;
+grant execute on function public.my_leader_id() to authenticated;
+grant execute on function public.in_my_subtree(uuid) to authenticated;
+grant execute on function public.leads_member(uuid) to authenticated;
