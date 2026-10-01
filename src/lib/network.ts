@@ -3,9 +3,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type EntryKind = "oferta" | "terca" | "arena" | "familia";
-export type Member = { id: string; user_id: string | null; parent_id: string | null; name: string; email: string; level: number };
-export type Entry = { id: string; member_id: string; date: string; month: string; kind: EntryKind; value: number; note: string };
-export type Totals = { oferta: number; terca: number; arena: number; familia: number; arregimentacao: number; membresia: number };
+export type Member = { id: string; user_id: string | null; parent_id: string | null; spouse_id: string | null; name: string; email: string; level: number };
+export type Entry = { id: string; member_id: string; date: string; month: string; kind: EntryKind; value: number; visitors: number; note: string };
+export type CellMode = "presencial" | "online";
+export type CellFreq = "semanal" | "quinzenal" | "mensal";
+export type Cell = { id: string; member_id: string; host_name: string; mode: CellMode; frequency: CellFreq; neighborhood: string; address: string };
+export type Meeting = { id: string; cell_id: string; date: string; month: string; lives: number; visitors: number; offering: number };
+export type Totals = { oferta: number; terca: number; arena: number; familia: number; arregimentacao: number; membresia: number; visitantes: number; cells: number; activeCells: number; vidas: number; cellVisitors: number };
+export type Goals = { oferta: number; membresia: number; cells: number };
+export const FREQ_LABEL: Record<CellFreq, string> = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
 
 export const KIND_LABEL: Record<EntryKind, string> = {
   oferta: "Parceiro de Deus",
@@ -48,18 +54,24 @@ export function monthOptions() {
 }
 export const today = () => new Date().toISOString().slice(0, 10);
 
-const empty = (): Totals => ({ oferta: 0, terca: 0, arena: 0, familia: 0, arregimentacao: 0, membresia: 0 });
+const empty = (): Totals => ({ oferta: 0, terca: 0, arena: 0, familia: 0, arregimentacao: 0, membresia: 0, visitantes: 0, cells: 0, activeCells: 0, vidas: 0, cellVisitors: 0 });
+const SUM_KEYS = ["oferta", "terca", "arena", "familia", "visitantes", "cells", "activeCells", "vidas", "cellVisitors"] as const;
+function add(t: Totals, o: Totals) { for (const k of SUM_KEYS) t[k] += o[k]; }
+function finish(t: Totals) { t.arregimentacao = t.terca + t.arena + t.familia; t.membresia = membresia(t); return t; }
+const zeroGoals = (): Goals => ({ oferta: 0, membresia: 0, cells: 0 });
 
-/** Rede visível para o usuário com cálculos de soma na árvore. */
+/** Rede visível com somas na árvore. Casais (spouse_id) contam como uma unidade com resultado e meta conjuntos. */
 export class Network {
   byId = new Map<string, Member>();
   kids = new Map<string, Member[]>();
-  own = new Map<string, Totals>();
-  goals = new Map<string, number>();
+  raw = new Map<string, Totals>();
+  goals = new Map<string, Goals>();
+  cellsByMember = new Map<string, Cell[]>();
+  meetingsByCell = new Map<string, Meeting[]>();
   private treeCache = new Map<string, Totals>();
-  private goalCache = new Map<string, number>();
+  private goalCache = new Map<string, Goals>();
 
-  constructor(public members: Member[], public entries: Entry[], goals: { member_id: string; value: number }[], public teamGoal: number) {
+  constructor(public members: Member[], public entries: Entry[], goals: ({ member_id: string } & Goals)[], public team: Goals, public cells: Cell[] = [], public meetings: Meeting[] = []) {
     for (const m of members) this.byId.set(m.id, m);
     for (const m of [...members].sort((a, b) => a.name.localeCompare(b.name))) {
       if (m.parent_id && this.byId.has(m.parent_id)) {
@@ -68,51 +80,71 @@ export class Network {
         this.kids.set(m.parent_id, list);
       }
     }
-    for (const e of entries) {
-      const t = this.own.get(e.member_id) ?? empty();
-      t[e.kind] += Number(e.value);
-      this.own.set(e.member_id, t);
+    const rawOf = (id: string) => { let t = this.raw.get(id); if (!t) { t = empty(); this.raw.set(id, t); } return t; };
+    for (const e of entries) { const t = rawOf(e.member_id); t[e.kind] += Number(e.value); if (e.kind !== "oferta") t.visitantes += Number(e.visitors ?? 0); }
+    for (const mt of meetings) { const l = this.meetingsByCell.get(mt.cell_id) ?? []; l.push(mt); this.meetingsByCell.set(mt.cell_id, l); }
+    for (const c of cells) {
+      const l = this.cellsByMember.get(c.member_id) ?? []; l.push(c); this.cellsByMember.set(c.member_id, l);
+      const t = rawOf(c.member_id); t.cells += 1;
+      const ms = this.meetingsByCell.get(c.id) ?? [];
+      if (ms.length) t.activeCells += 1;
+      for (const mt of ms) { t.oferta += Number(mt.offering); t.vidas += mt.lives; t.cellVisitors += mt.visitors; }
     }
-    for (const t of this.own.values()) { t.arregimentacao = t.terca + t.arena + t.familia; t.membresia = membresia(t); }
-    for (const g of goals) this.goals.set(g.member_id, Number(g.value));
+    for (const g of goals) this.goals.set(g.member_id, { oferta: Number(g.oferta), membresia: Number(g.membresia), cells: Number(g.cells) });
   }
 
+  /** Teamgoal legado (Parceiro de Deus). */
+  get teamGoal() { return this.team.oferta; }
   person(id: string) { return this.byId.get(id); }
-  childrenOf(id: string) { return this.kids.get(id) ?? []; }
-  goalOf(id: string) { return this.goals.get(id) ?? 0; }
-  ownTotals(id: string) { return this.own.get(id) ?? empty(); }
-  entriesOf(id: string) { return this.entries.filter((e) => e.member_id === id).sort((a, b) => b.date.localeCompare(a.date)); }
+  spouseOf(id: string) { const s = this.byId.get(id)?.spouse_id; return s ? this.byId.get(s) : undefined; }
+  unit(id: string) { const s = this.spouseOf(id); return s ? [id, s.id] : [id]; }
+  unitKey(id: string) { return this.unit(id).sort()[0]!; }
+  unitName(id: string) { const p = this.person(id); const s = this.spouseOf(id); return s ? `${p?.name.split(" ")[0]} & ${s.name.split(" ")[0]}` : p?.name ?? "—"; }
+  /** Filhos diretos da pessoa e do cônjuge (equipe compartilhada). */
+  childrenOf(id: string) {
+    const out = this.unit(id).flatMap((u) => this.kids.get(u) ?? []);
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  /** Um representante por unidade (casais aparecem uma vez). */
+  childUnits(id: string) { const seen = new Set<string>(); return this.childrenOf(id).filter((c) => { const k = this.unitKey(c.id); if (seen.has(k)) return false; seen.add(k); return true; }); }
+  goalOf(id: string): Goals { const g = zeroGoals(); for (const u of this.unit(id)) { const x = this.goals.get(u); if (x) { g.oferta = Math.max(g.oferta, x.oferta); g.membresia = Math.max(g.membresia, x.membresia); g.cells = Math.max(g.cells, x.cells); } } return g; }
+  ownTotals(id: string): Totals { const t = empty(); for (const u of this.unit(id)) { const r = this.raw.get(u); if (r) add(t, r); } return finish(t); }
+  cellsOf(id: string) { return this.unit(id).flatMap((u) => this.cellsByMember.get(u) ?? []); }
+  meetingsOf(cellId: string) { return (this.meetingsByCell.get(cellId) ?? []).sort((a, b) => b.date.localeCompare(a.date)); }
+  entriesOf(id: string) { const u = this.unit(id); return this.entries.filter((e) => u.includes(e.member_id)).sort((a, b) => b.date.localeCompare(a.date)); }
   pathOf(id: string) {
     const path: Member[] = [];
     let cur = this.byId.get(id);
     while (cur) { path.unshift(cur); cur = cur.parent_id ? this.byId.get(cur.parent_id) : undefined; }
     return path;
   }
-  subtreeSize(id: string): number { return this.childrenOf(id).reduce((a, c) => a + 1 + this.subtreeSize(c.id), 0); }
+  inTree(rootId: string, id: string) { const r = new Set(this.unit(rootId)); return this.pathOf(id).some((x) => r.has(x.id)); }
+  subtreeSize(id: string): number { return this.childrenOf(id).reduce((a, c) => a + 1 + this.kidsCount(c.id), 0); }
+  private kidsCount(id: string): number { return (this.kids.get(id) ?? []).reduce((a, c) => a + 1 + this.kidsCount(c.id), 0); }
   treeTotals(id: string): Totals {
-    const hit = this.treeCache.get(id);
+    const key = this.unitKey(id);
+    const hit = this.treeCache.get(key);
     if (hit) return hit;
-    const t = { ...this.ownTotals(id) };
-    for (const c of this.childrenOf(id)) {
-      const ct = this.treeTotals(c.id);
-      t.oferta += ct.oferta; t.terca += ct.terca; t.arena += ct.arena; t.familia += ct.familia;
-    }
-    t.arregimentacao = t.terca + t.arena + t.familia;
-    t.membresia = membresia(t);
-    this.treeCache.set(id, t);
+    const t = this.ownTotals(id);
+    for (const c of this.childUnits(id)) add(t, this.treeTotals(c.id));
+    finish(t);
+    this.treeCache.set(key, t);
     return t;
   }
-  treeGoal(id: string): number {
-    const hit = this.goalCache.get(id);
-    if (hit !== undefined) return hit;
-    const v = this.goalOf(id) + this.childrenOf(id).reduce((a, c) => a + this.treeGoal(c.id), 0);
-    this.goalCache.set(id, v);
-    return v;
+  treeGoal(id: string): Goals {
+    const key = this.unitKey(id);
+    const hit = this.goalCache.get(key);
+    if (hit) return hit;
+    const g = this.goalOf(id);
+    for (const c of this.childUnits(id)) { const x = this.treeGoal(c.id); g.oferta += x.oferta; g.membresia += x.membresia; g.cells += x.cells; }
+    this.goalCache.set(key, g);
+    return g;
   }
 }
 
 // ---------------- Dados ----------------
 export type Me = { member: Member | null; isAdmin: boolean; email: string };
+const MEMBER_COLS = "id, user_id, parent_id, spouse_id, name, email, level";
 
 export function useMe() {
   return useQuery({
@@ -126,7 +158,7 @@ export function useMe() {
       if (error) throw error;
       let member: Member | null = null;
       if (id) {
-        const { data } = await supabase.from("members").select("id, user_id, parent_id, name, email, level").eq("id", id).maybeSingle();
+        const { data } = await supabase.from("members").select(MEMBER_COLS).eq("id", id).maybeSingle();
         member = data;
       }
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
@@ -140,17 +172,31 @@ export function useNetwork(month: string, enabled: boolean) {
     queryKey: ["network", month],
     enabled,
     queryFn: async () => {
-      const [members, entries, goals, team] = await Promise.all([
-        supabase.from("members").select("id, user_id, parent_id, name, email, level"),
-        supabase.from("entries").select("id, member_id, date, month, kind, value, note").eq("month", month),
-        supabase.from("personal_goals").select("member_id, value").eq("month", month),
-        supabase.from("team_goals").select("value").eq("month", month).maybeSingle(),
+      const [members, entries, goals, team, cells, meetings] = await Promise.all([
+        supabase.from("members").select(MEMBER_COLS),
+        supabase.from("entries").select("id, member_id, date, month, kind, value, visitors, note").eq("month", month),
+        supabase.from("personal_goals").select("member_id, value, membresia, cells").eq("month", month),
+        supabase.from("team_goals").select("value, membresia, cells").eq("month", month).maybeSingle(),
+        supabase.from("cells").select("id, member_id, host_name, mode, frequency, neighborhood, address"),
+        supabase.from("cell_meetings").select("id, cell_id, date, month, lives, visitors, offering").eq("month", month),
       ]);
-      const err = members.error ?? entries.error ?? goals.error ?? team.error;
+      const err = members.error ?? entries.error ?? goals.error ?? team.error ?? cells.error ?? meetings.error;
       if (err) throw err;
-      return new Network(members.data ?? [], (entries.data ?? []) as Entry[], goals.data ?? [], Number(team.data?.value ?? 0));
+      return new Network(
+        members.data ?? [],
+        (entries.data ?? []) as Entry[],
+        (goals.data ?? []).map((g) => ({ member_id: g.member_id, oferta: Number(g.value), membresia: Number(g.membresia), cells: Number(g.cells) })),
+        { oferta: Number(team.data?.value ?? 0), membresia: Number(team.data?.membresia ?? 0), cells: Number(team.data?.cells ?? 0) },
+        (cells.data ?? []) as Cell[],
+        (meetings.data ?? []).map((m) => ({ ...m, offering: Number(m.offering) })),
+      );
     },
   });
+}
+
+export async function fetchMeetingPhoto(id: string) {
+  const { data } = await supabase.from("cell_meetings").select("photo").eq("id", id).maybeSingle();
+  return data?.photo ?? "";
 }
 
 function friendly(e: unknown) {
@@ -158,6 +204,7 @@ function friendly(e: unknown) {
   if (msg.includes("12 discípulos")) return "Cada líder pode ter no máximo 12 discípulos.";
   if (msg.includes("duplicate") || msg.includes("unique")) return "Este e-mail já está cadastrado na rede.";
   if (msg.includes("e-mail de quem já criou")) return "Não é possível alterar o e-mail de quem já criou a conta.";
+  for (const k of ["Co-líder já vinculado", "mesmo líder", "já está em um casal", "Apenas o Líder Principal", "Dados inválidos"]) if (msg.includes(k)) return msg.replace(/^.*?:\s*/, "");
   if (msg.includes("row-level security")) return "Você não tem permissão para esta ação.";
   return "Não foi possível salvar. Tente novamente.";
 }
@@ -170,14 +217,21 @@ export function useActions(onNotice: (m: string) => void) {
     useMutation({ mutationFn: async (v: T) => { const { error } = await fn(v); if (error) throw error; }, onSuccess: done(msg), onError: fail });
 
   return {
-    addEntry: run((v: { member_id: string; date: string; kind: EntryKind; value: number; note: string }) => supabase.from("entries").insert(v), "Lançamento registrado."),
-    updateEntry: run((v: { id: string; date: string; kind: EntryKind; value: number; note: string }) => supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, note: v.note }).eq("id", v.id), "Lançamento atualizado."),
+    addEntry: run((v: { member_id: string; date: string; kind: EntryKind; value: number; visitors: number; note: string }) => supabase.from("entries").insert(v), "Lançamento registrado."),
+    updateEntry: run((v: { id: string; date: string; kind: EntryKind; value: number; visitors: number; note: string }) => supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, visitors: v.visitors, note: v.note }).eq("id", v.id), "Lançamento atualizado."),
     deleteEntry: run((id: string) => supabase.from("entries").delete().eq("id", id), "Lançamento excluído."),
-    setGoal: run((v: { member_id: string; month: string; value: number }) => supabase.from("personal_goals").upsert(v), "Meta salva."),
-    setTeamGoal: run((v: { month: string; value: number }) => supabase.from("team_goals").upsert(v), "Meta da equipe salva."),
+    setGoal: run(async (v: { member_ids: string[]; month: string; goals: Goals }) => supabase.from("personal_goals").upsert(v.member_ids.map((member_id) => ({ member_id, month: v.month, value: v.goals.oferta, membresia: v.goals.membresia, cells: v.goals.cells }))), "Meta salva."),
+    setTeamGoal: run((v: { month: string; goals: Goals }) => supabase.from("team_goals").upsert({ month: v.month, value: v.goals.oferta, membresia: v.goals.membresia, cells: v.goals.cells }), "Meta da equipe salva."),
     addMember: run((v: { parent_id: string; name: string; email: string }) => supabase.from("members").insert(v), "Discípulo cadastrado."),
     updateMember: run((v: { id: string; name: string; email: string }) => supabase.from("members").update({ name: v.name, email: v.email }).eq("id", v.id), "Cadastro atualizado."),
     deleteMember: run((id: string) => supabase.from("members").delete().eq("id", id), "Discípulo removido."),
+    addCoLeader: run((v: { name: string; email: string }) => supabase.rpc("add_co_leader", { _name: v.name, _email: v.email }), "Co-líder vinculado(a)."),
+    linkCouple: run((v: { a: string; b: string }) => supabase.rpc("link_couple", { _a: v.a, _b: v.b }), "Casal vinculado."),
+    unlinkCouple: run((id: string) => supabase.rpc("unlink_couple", { _a: id }), "Casal desvinculado."),
+    saveCell: run((v: Omit<Cell, "id"> & { id?: string }) => (v.id ? supabase.from("cells").update(v).eq("id", v.id) : supabase.from("cells").insert(v)), "Célula salva."),
+    deleteCell: run((id: string) => supabase.from("cells").delete().eq("id", id), "Célula removida."),
+    addMeeting: run((v: { cell_id: string; date: string; lives: number; visitors: number; offering: number; photo: string }) => supabase.from("cell_meetings").insert(v), "Encontro registrado."),
+    deleteMeeting: run((id: string) => supabase.from("cell_meetings").delete().eq("id", id), "Encontro excluído."),
   };
 }
 export type Actions = ReturnType<typeof useActions>;

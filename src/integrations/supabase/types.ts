@@ -14,6 +14,91 @@ export type Database = {
   }
   public: {
     Tables: {
+      cell_meetings: {
+        Row: {
+          cell_id: string
+          created_at: string
+          date: string
+          id: string
+          lives: number
+          month: string
+          offering: number
+          photo: string
+          visitors: number
+        }
+        Insert: {
+          cell_id: string
+          created_at?: string
+          date: string
+          id?: string
+          lives?: number
+          month?: string
+          offering?: number
+          photo?: string
+          visitors?: number
+        }
+        Update: {
+          cell_id?: string
+          created_at?: string
+          date?: string
+          id?: string
+          lives?: number
+          month?: string
+          offering?: number
+          photo?: string
+          visitors?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cell_meetings_cell_id_fkey"
+            columns: ["cell_id"]
+            isOneToOne: false
+            referencedRelation: "cells"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cells: {
+        Row: {
+          address: string
+          created_at: string
+          frequency: string
+          host_name: string
+          id: string
+          member_id: string
+          mode: string
+          neighborhood: string
+        }
+        Insert: {
+          address?: string
+          created_at?: string
+          frequency: string
+          host_name: string
+          id?: string
+          member_id: string
+          mode?: string
+          neighborhood?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          frequency?: string
+          host_name?: string
+          id?: string
+          member_id?: string
+          mode?: string
+          neighborhood?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cells_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entries: {
         Row: {
           created_at: string
@@ -24,6 +109,7 @@ export type Database = {
           month: string
           note: string
           value: number
+          visitors: number
         }
         Insert: {
           created_at?: string
@@ -34,6 +120,7 @@ export type Database = {
           month?: string
           note?: string
           value: number
+          visitors?: number
         }
         Update: {
           created_at?: string
@@ -44,6 +131,7 @@ export type Database = {
           month?: string
           note?: string
           value?: number
+          visitors?: number
         }
         Relationships: [
           {
@@ -63,6 +151,7 @@ export type Database = {
           level: number
           name: string
           parent_id: string | null
+          spouse_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -72,6 +161,7 @@ export type Database = {
           level?: number
           name: string
           parent_id?: string | null
+          spouse_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -81,6 +171,7 @@ export type Database = {
           level?: number
           name?: string
           parent_id?: string | null
+          spouse_id?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -91,21 +182,34 @@ export type Database = {
             referencedRelation: "members"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "members_spouse_id_fkey"
+            columns: ["spouse_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
         ]
       }
       personal_goals: {
         Row: {
+          cells: number
           member_id: string
+          membresia: number
           month: string
           value: number
         }
         Insert: {
+          cells?: number
           member_id: string
+          membresia?: number
           month: string
           value?: number
         }
         Update: {
+          cells?: number
           member_id?: string
+          membresia?: number
           month?: string
           value?: number
         }
@@ -121,14 +225,20 @@ export type Database = {
       }
       team_goals: {
         Row: {
+          cells: number
+          membresia: number
           month: string
           value: number
         }
         Insert: {
+          cells?: number
+          membresia?: number
           month: string
           value?: number
         }
         Update: {
+          cells?: number
+          membresia?: number
           month?: string
           value?: number
         }
@@ -157,6 +267,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_co_leader: {
+        Args: { _email: string; _name: string }
+        Returns: string
+      }
+      cell_visible: { Args: { _cell: string }; Returns: boolean }
       claim_membership: { Args: { _name: string }; Returns: string }
       has_role: {
         Args: {
@@ -167,8 +282,10 @@ export type Database = {
       }
       in_my_subtree: { Args: { _target: string }; Returns: boolean }
       leads_member: { Args: { _target: string }; Returns: boolean }
+      link_couple: { Args: { _a: string; _b: string }; Returns: undefined }
       my_leader_id: { Args: never; Returns: string }
       my_member_id: { Args: never; Returns: string }
+      unlink_couple: { Args: { _a: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
