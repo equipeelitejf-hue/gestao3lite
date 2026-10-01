@@ -204,6 +204,7 @@ function friendly(e: unknown) {
   if (msg.includes("12 discípulos")) return "Cada líder pode ter no máximo 12 discípulos.";
   if (msg.includes("duplicate") || msg.includes("unique")) return "Este e-mail já está cadastrado na rede.";
   if (msg.includes("e-mail de quem já criou")) return "Não é possível alterar o e-mail de quem já criou a conta.";
+  for (const k of ["Co-líder já vinculado", "mesmo líder", "já está em um casal", "Apenas o Líder Principal", "Dados inválidos"]) if (msg.includes(k)) return msg.replace(/^.*?:\s*/, "");
   if (msg.includes("row-level security")) return "Você não tem permissão para esta ação.";
   return "Não foi possível salvar. Tente novamente.";
 }
@@ -216,14 +217,21 @@ export function useActions(onNotice: (m: string) => void) {
     useMutation({ mutationFn: async (v: T) => { const { error } = await fn(v); if (error) throw error; }, onSuccess: done(msg), onError: fail });
 
   return {
-    addEntry: run((v: { member_id: string; date: string; kind: EntryKind; value: number; note: string }) => supabase.from("entries").insert(v), "Lançamento registrado."),
-    updateEntry: run((v: { id: string; date: string; kind: EntryKind; value: number; note: string }) => supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, note: v.note }).eq("id", v.id), "Lançamento atualizado."),
+    addEntry: run((v: { member_id: string; date: string; kind: EntryKind; value: number; visitors: number; note: string }) => supabase.from("entries").insert(v), "Lançamento registrado."),
+    updateEntry: run((v: { id: string; date: string; kind: EntryKind; value: number; visitors: number; note: string }) => supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, visitors: v.visitors, note: v.note }).eq("id", v.id), "Lançamento atualizado."),
     deleteEntry: run((id: string) => supabase.from("entries").delete().eq("id", id), "Lançamento excluído."),
-    setGoal: run((v: { member_id: string; month: string; value: number }) => supabase.from("personal_goals").upsert(v), "Meta salva."),
-    setTeamGoal: run((v: { month: string; value: number }) => supabase.from("team_goals").upsert(v), "Meta da equipe salva."),
+    setGoal: run(async (v: { member_ids: string[]; month: string; goals: Goals }) => supabase.from("personal_goals").upsert(v.member_ids.map((member_id) => ({ member_id, month: v.month, value: v.goals.oferta, membresia: v.goals.membresia, cells: v.goals.cells }))), "Meta salva."),
+    setTeamGoal: run((v: { month: string; goals: Goals }) => supabase.from("team_goals").upsert({ month: v.month, value: v.goals.oferta, membresia: v.goals.membresia, cells: v.goals.cells }), "Meta da equipe salva."),
     addMember: run((v: { parent_id: string; name: string; email: string }) => supabase.from("members").insert(v), "Discípulo cadastrado."),
     updateMember: run((v: { id: string; name: string; email: string }) => supabase.from("members").update({ name: v.name, email: v.email }).eq("id", v.id), "Cadastro atualizado."),
     deleteMember: run((id: string) => supabase.from("members").delete().eq("id", id), "Discípulo removido."),
+    addCoLeader: run((v: { name: string; email: string }) => supabase.rpc("add_co_leader", { _name: v.name, _email: v.email }), "Co-líder vinculado(a)."),
+    linkCouple: run((v: { a: string; b: string }) => supabase.rpc("link_couple", { _a: v.a, _b: v.b }), "Casal vinculado."),
+    unlinkCouple: run((id: string) => supabase.rpc("unlink_couple", { _a: id }), "Casal desvinculado."),
+    saveCell: run((v: Omit<Cell, "id"> & { id?: string }) => (v.id ? supabase.from("cells").update(v).eq("id", v.id) : supabase.from("cells").insert(v)), "Célula salva."),
+    deleteCell: run((id: string) => supabase.from("cells").delete().eq("id", id), "Célula removida."),
+    addMeeting: run((v: { cell_id: string; date: string; lives: number; visitors: number; offering: number; photo: string }) => supabase.from("cell_meetings").insert(v), "Encontro registrado."),
+    deleteMeeting: run((id: string) => supabase.from("cell_meetings").delete().eq("id", id), "Encontro excluído."),
   };
 }
 export type Actions = ReturnType<typeof useActions>;
