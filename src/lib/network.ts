@@ -23,12 +23,15 @@ export const KIND_LABEL: Record<EntryKind, string> = {
 /** Peso de cada culto na membresia. */
 export const MEMBRESIA_WEIGHT = { terca: 0.3, arena: 0.5, familia: 1 } as const;
 
+/** Membresia arredondada: decimal ≥ 0,5 sobe, ≤ 0,4 desce. */
 export function membresia(t: { terca: number; arena: number; familia: number }) {
-  return Math.round((t.terca * MEMBRESIA_WEIGHT.terca + t.arena * MEMBRESIA_WEIGHT.arena + t.familia * MEMBRESIA_WEIGHT.familia) * 10) / 10;
+  const raw = t.terca * MEMBRESIA_WEIGHT.terca + t.arena * MEMBRESIA_WEIGHT.arena + t.familia * MEMBRESIA_WEIGHT.familia;
+  return Math.round(Math.round(raw * 100) / 100);
 }
 
-export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-export const num = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+/** Parceiro de Deus sempre com centavos, sem arredondar. */
+export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const num = (v: number) => Math.round(v).toLocaleString("pt-BR");
 export const pct = (v: number, goal: number) => (goal > 0 ? Math.round((v / goal) * 100) : 0);
 export const initials = (name: string) => name.replace(/^Pr\.?\s+/i, "").split(/\s+/).filter(Boolean).map((s) => s[0]).slice(0, 2).join("").toUpperCase() || "?";
 
