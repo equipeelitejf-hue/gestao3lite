@@ -62,7 +62,7 @@ export function MinisterialDashboard() {
     const rows = ["Nome,E-mail,Nível,Meta Parceiro de Deus,Parceiro de Deus,Terça da Fé,Arena,Culto da Família,Membresia"];
     for (const p of net.members) {
       const t = net.ownTotals(p.id);
-      rows.push([`"${p.name.replace(/"/g, "'")}"`, p.email, levelLabel(p.level), net.goalOf(p.id), t.oferta, t.terca, t.arena, t.familia, t.membresia].join(","));
+      rows.push([`"${p.name.replace(/"/g, "'")}"`, p.email, levelLabel(p.level), net.goalOf(p.id).oferta, t.oferta, t.terca, t.arena, t.familia, t.membresia].join(","));
     }
     const url = URL.createObjectURL(new Blob(["\uFEFF" + rows.join("\n")], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
@@ -156,7 +156,7 @@ function LoadingBlock() {
 function LeaderView({ net, me, month, onExport, onSelect, onTab }: { net: Network; me: Member; month: string; onExport: () => void; onSelect: (id: string) => void; onTab: (t: Tab) => void }) {
   const t = net.treeTotals(me.id);
   const teamGoal = net.teamGoal;
-  const directs = net.childrenOf(me.id).map((p) => ({ p, t: net.treeTotals(p.id), g: net.treeGoal(p.id) })).sort((a, b) => b.t.membresia - a.t.membresia);
+  const directs = net.childrenOf(me.id).map((p) => ({ p, t: net.treeTotals(p.id), g: net.treeGoal(p.id).oferta })).sort((a, b) => b.t.membresia - a.t.membresia);
   const recent = [...net.entries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
   const size = net.subtreeSize(me.id);
   const level2 = directs.reduce((a, d) => a + net.childrenOf(d.p.id).length, 0);
@@ -191,7 +191,7 @@ function RecentEntries({ net, entries }: { net: Network; entries: Entry[] }) {
 
 function DiscipleView({ net, me, onTab }: { net: Network; me: Member; onTab: (t: Tab) => void }) {
   const own = net.ownTotals(me.id);
-  const goal = net.goalOf(me.id);
+  const goal = net.goalOf(me.id).oferta;
   const progress = pct(own.oferta, goal);
   const kids = net.childrenOf(me.id);
   const tree = net.treeTotals(me.id);

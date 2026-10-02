@@ -144,7 +144,7 @@ export function GoalsEditor({ net, month, parentId, isAdmin, actions }: { net: N
   </section>;
 }
 
-function NumberInput({ value, onSave, dark, money }: { value: number; onSave: (v: number) => void; dark?: boolean; money?: boolean }) {
+function NumberInput({ value, onSave, dark, money }: { value: number; onSave: (v: number) => void; dark?: boolean | undefined; money?: boolean | undefined }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
     if (draft === null) return;
