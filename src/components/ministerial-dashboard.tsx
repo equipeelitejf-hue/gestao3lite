@@ -1,21 +1,23 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Check, ChevronDown, Clock3, Download, Goal, Home, LogOut, Menu, Plus, Target, TrendingUp, UserPlus, UserRound, UsersRound, X } from "lucide-react";
+import { Check, ChevronDown, Clock3, Download, Goal, Home, MapPin as Home2, LogOut, Menu, Plus, Target, TrendingUp, UserPlus, UserRound, UsersRound, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import logoBlue from "@/assets/logotipo-azul.svg.asset.json";
 import symbolOrange from "@/assets/simbolo-laranja.svg.asset.json";
 import symbolWhite from "@/assets/simbolo-branco.svg.asset.json";
 import { Avatar, Bar, EmptyState, EntryForm, EntryList, GoalsEditor, MemberSheet, NetworkTree, TeamManager, levelLabel } from "@/components/network-panels";
+import { CellsView, CoLeaderCard } from "@/components/cells-panel";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { KIND_LABEL, brl, currentMonth, initials, monthLabel, monthOptions, num, pct, useActions, useMe, useNetwork, type Actions, type Entry, type Member, type Network } from "@/lib/network";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "entries" | "team" | "goals" | "network";
+type Tab = "overview" | "entries" | "team" | "goals" | "network" | "cells";
 const TABS: { id: Tab; label: string; short: string; icon: typeof Home }[] = [
   { id: "overview", label: "Visão geral", short: "Início", icon: Home },
   { id: "entries", label: "Lançamentos", short: "Lançar", icon: Plus },
+  { id: "cells", label: "Células", short: "Células", icon: Home2 },
   { id: "team", label: "Minha equipe", short: "Equipe", icon: UserPlus },
   { id: "goals", label: "Metas", short: "Metas", icon: Target },
   { id: "network", label: "Rede", short: "Rede", icon: UsersRound },
@@ -121,14 +123,15 @@ export function MinisterialDashboard() {
           {!member || !net ? (netQ.isError ? <EmptyState title="Não foi possível carregar a rede" text="Tente novamente em instantes." action={<Button onClick={() => netQ.refetch()}>Tentar novamente</Button>} /> : <LoadingBlock />) : <div className="animate-fade-in">
             {tab === "overview" && (isRoot ? <LeaderView net={net} me={member} month={month} onExport={exportReport} onSelect={setSelected} onTab={setTab} /> : <DiscipleView net={net} me={member} onTab={setTab} />)}
             {tab === "entries" && <EntriesView net={net} me={member} month={month} actions={actions} />}
-            {tab === "team" && <><PageHeading eyebrow="Cadastro" title="Minha equipe" description="Cadastre, edite ou remova os seus discípulos diretos." /><div className="mt-8"><TeamManager net={net} parentId={member.id} actions={actions} onSelect={setSelected} /></div></>}
+            {tab === "team" && <><PageHeading eyebrow="Cadastro" title="Minha equipe" description="Cadastre, edite ou remova os seus discípulos diretos." /><div className="mt-8">{isRoot && isAdmin && <CoLeaderCard net={net} rootId={member.id} actions={actions} />}<TeamManager net={net} parentId={member.id} actions={actions} onSelect={setSelected} /></div></>}
             {tab === "goals" && <><PageHeading eyebrow="Metas" title={`Metas de ${monthLabel(month).toLowerCase()}`} description="Parceiro de Deus: meta de oferta definida com cada discípulo." /><div className="mt-8"><GoalsEditor net={net} month={month} parentId={member.id} isAdmin={isAdmin && isRoot} actions={actions} /></div></>}
+            {tab === "cells" && <><PageHeading eyebrow="Células" title="Minhas células" description="Cadastre células e lance os encontros com foto." /><div className="mt-8"><CellsView net={net} memberId={member.id} month={month} actions={actions} /></div></>}
             {tab === "network" && <><PageHeading eyebrow="Rede" title="Minha rede" description="Resultados somados automaticamente em toda a hierarquia." action={isRoot ? <Button variant="outline" onClick={exportReport}><Download className="size-4" />Exportar</Button> : undefined} /><div className="mt-8"><NetworkTree net={net} rootId={member.id} onSelect={setSelected} /></div></>}
           </div>}
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-20 grid-cols-5 border-t border-border bg-card px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-20 grid-cols-6 border-t border-border bg-card px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
         {TABS.map((t) => <button key={t.id} onClick={() => setTab(t.id)} className={cn("flex flex-col items-center justify-center gap-1 text-[10px] font-medium", tab === t.id ? "text-primary" : "text-muted-foreground")}><t.icon className="size-5" />{t.short}</button>)}
       </nav>
 
@@ -162,13 +165,14 @@ function LeaderView({ net, me, month, onExport, onSelect, onTab }: { net: Networ
   const level2 = directs.reduce((a, d) => a + net.childrenOf(d.p.id).length, 0);
   const cards = [
     { label: "Parceiro de Deus", value: brl(t.oferta), note: teamGoal ? `${pct(t.oferta, teamGoal)}% da meta de ${brl(teamGoal)}` : "Meta da equipe não definida", icon: Goal },
+    { label: "Membresia", value: num(t.membresia), note: net.team.membresia ? `${pct(t.membresia, net.team.membresia)}% da meta de ${num(net.team.membresia)}` : "30% Terça + 50% Arena + 100% Família", icon: TrendingUp },
+    { label: "Células ativas", value: `${t.activeCells}/${t.cells}`, note: net.team.cells ? `${pct(t.activeCells, net.team.cells)}% da meta de ${net.team.cells}` : "Meta de células não definida", icon: Home2 },
     { label: "Arregimentação", value: num(t.arregimentacao), note: `${t.terca} Terça · ${t.arena} Arena · ${t.familia} Família`, icon: UsersRound },
-    { label: "Membresia", value: num(t.membresia), note: "30% Terça + 50% Arena + 100% Família", icon: TrendingUp },
     { label: "Rede ministerial", value: String(size), note: `${directs.length} diretos · ${level2} no 2º nível`, icon: UserRound },
   ];
   return <div>
     <PageHeading eyebrow="Painel do líder" title={`Olá, ${me.name.split(" ")[0]}`} description={`Resultados de ${monthLabel(month).toLowerCase()} somados em toda a rede.`} action={<Button onClick={onExport}><Download className="size-4" />Exportar relatório</Button>} />
-    <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
+    <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{cards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
       <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
         <SectionHeading title="Meus 12" subtitle="Ordenados pela membresia da rede de cada um" action={directs.length ? "Ver rede completa" : undefined} onAction={() => onTab("network")} />
@@ -212,8 +216,9 @@ function DiscipleView({ net, me, onTab }: { net: Network; me: Member; onTab: (t:
         </div>
       </section>
       <div className="space-y-6">
+        <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Minhas metas do mês" subtitle="Membresia e células ativas" action="Células" onAction={() => onTab("cells")} /><div className="mt-5 grid grid-cols-2 gap-3"><MiniStat value={`${num(own.membresia)} / ${num(net.goalOf(me.id).membresia)}`} label="Membresia" /><MiniStat value={`${own.activeCells} / ${net.goalOf(me.id).cells}`} label="Células ativas" /></div></section>
         <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Minha equipe" subtitle={kids.length ? "Discípulos abaixo de você" : "Cadastre seus discípulos"} action={kids.length ? "Ver rede" : "Cadastrar"} onAction={() => onTab(kids.length ? "network" : "team")} /><div className="mt-5 flex items-end justify-between"><div><strong className="text-4xl font-bold text-navy">{kids.length}</strong><span className="text-lg text-muted-foreground"> / 12</span><p className="mt-1 text-xs text-muted-foreground">discípulos</p></div><div className="flex -space-x-2">{kids.slice(0, 3).map((k) => <span key={k.id} className="grid size-9 place-items-center rounded-full border-2 border-card bg-accent text-[10px] font-medium">{initials(k.name)}</span>)}{kids.length > 3 && <span className="grid size-9 place-items-center rounded-full border-2 border-card bg-accent text-[10px] font-medium">+{kids.length - 3}</span>}</div></div></section>
-        {kids.length > 0 && <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Com a minha rede" subtitle="Seu resultado somado ao da sua equipe" /><div className="mt-5 grid grid-cols-2 gap-3"><MiniStat value={brl(tree.oferta)} label="Parceiro de Deus" /><MiniStat value={num(tree.membresia)} label="Membresia" /></div></section>}
+        {kids.length > 0 && <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Com a minha rede" subtitle="Seu resultado somado ao da sua equipe" /><div className="mt-5 grid grid-cols-2 gap-3"><MiniStat value={brl(tree.oferta)} label="Parceiro de Deus" /><MiniStat value={num(tree.membresia)} label="Membresia" /><MiniStat value={`${tree.activeCells}`} label="Células ativas" /></div></section>}
       </div>
     </div>
   </div>;

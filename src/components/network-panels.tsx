@@ -149,11 +149,11 @@ function NumberInput({ value, onSave, dark, money }: { value: number; onSave: (v
   const commit = () => {
     if (draft === null) return;
     const r = z.coerce.number().min(0).max(10_000_000).safeParse(draft.replace(/\./g, "").replace(",", "."));
-    if (r.success && Math.round(r.data) !== value) onSave(Math.round(r.data));
+    if (r.success) { const v = money ? Math.round(r.data * 100) / 100 : Math.round(r.data); if (v !== value) onSave(v); }
     setDraft(null);
   };
   return <div className="relative mt-1 w-full min-w-24">{money && <span className={cn("absolute left-3 top-1/2 -translate-y-1/2 text-xs", dark ? "text-primary-foreground/60" : "text-muted-foreground")}>R$</span>}
-    <Input inputMode="decimal" aria-label="Meta" value={draft ?? String(value)} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} className={cn("text-right", money && "pl-9", dark && "border-navy-soft bg-navy-deep text-primary-foreground")} />
+    <Input inputMode="decimal" aria-label="Meta" value={draft ?? (money ? value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(value))} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} className={cn("text-right", money && "pl-9", dark && "border-navy-soft bg-navy-deep text-primary-foreground")} />
   </div>;
 }
 
