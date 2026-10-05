@@ -6,7 +6,7 @@ export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
     meta: [
       { title: "Painel — 3Lite Gestão Ministerial" },
-      { name: "description", content: "Metas, lançamentos e resultados da sua rede ministerial." },
+      { name: "description", content: "Metas, lançamentos e resultados do seu circuito ministerial." },
       { property: "og:title", content: "Painel — 3Lite Gestão Ministerial" },
       { property: "og:description", content: "Metas, lançamentos e resultados da sua rede ministerial." },
       { property: "og:type", content: "website" },
