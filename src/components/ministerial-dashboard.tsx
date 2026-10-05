@@ -121,7 +121,7 @@ export function MinisterialDashboard() {
         </aside>
         <main className="min-w-0 flex-1 px-4 pb-28 pt-7 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">
           <MonthSelect value={month} options={months} onChange={setMonth} className="mb-5 h-10 w-full sm:hidden" />
-          {!member || !net ? (netQ.isError ? <EmptyState title="Não foi possível carregar o circuito" text="Tente novamente em instantes." action={<Button onClick={() => netQ.refetch()}>Tentar novamente</Button>} /> : <LoadingBlock />) : <div className="animate-fade-in">
+          {!member || !net ? (netQ.isError ? <EmptyState title="Não foi possível carregar o circuito" text="Tente novamente em instantes." action={<Button onClick={() => netQ.refetch()}>Tentar novamente</Button>} /> : <LoadingBlock />) : <div className="animate-fade-in min-w-0 w-full">
             {tab === "overview" && (isRoot ? <LeaderView net={net} me={member} month={month} onExport={exportReport} onSelect={setSelected} onTab={setTab} /> : <DiscipleView net={net} me={member} onTab={setTab} />)}
             {tab === "entries" && <EntriesView net={net} me={member} month={month} actions={actions} />}
             {tab === "team" && <><PageHeading eyebrow="Cadastro" title="Minha equipe" description="Cadastre, edite ou remova os seus discípulos diretos." /><div className="mt-8">{isRoot && isAdmin && <CoLeaderCard net={net} rootId={member.id} actions={actions} />}<TeamManager net={net} parentId={member.id} actions={actions} onSelect={setSelected} /></div></>}

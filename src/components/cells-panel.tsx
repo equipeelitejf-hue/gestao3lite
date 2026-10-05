@@ -131,25 +131,25 @@ export function CellsView({ net, memberId, month, actions }: { net: Network; mem
   const [launch, setLaunch] = useState<string | null>(null);
   const cells = net.cellsOf(memberId);
   const active = cells.filter((c) => net.meetingsOf(c.id).length).length;
-  return <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-    <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
+  return <div className="grid min-w-0 w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+    <section className="min-w-0 w-full rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
       <h2 className="text-lg font-bold text-navy">{editing ? "Editar célula" : "Cadastrar célula"}</h2>
       <p className="mb-5 mt-1 text-xs text-muted-foreground">Células online não precisam de bairro e endereço.</p>
       <CellForm key={editing?.id ?? "new"} memberId={memberId} editing={editing} actions={actions} onDone={() => setEditing(null)} />
     </section>
-    <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
+    <section className="min-w-0 w-full rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
       <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold text-navy">Minhas células</h2><span className="text-sm text-muted-foreground"><strong className="text-primary">{active}</strong> ativas de {cells.length}</span></div>
       <p className="mt-1 text-[11px] text-muted-foreground">Célula ativa é a que tem pelo menos um encontro lançado no mês.</p>
       <div className="mt-5 space-y-4">
         {cells.length === 0 && <EmptyState title="Nenhuma célula cadastrada" text="Cadastre sua primeira célula ao lado para começar a lançar os encontros." />}
-        {cells.map((c) => { const ms = net.meetingsOf(c.id); return <div key={c.id} className="rounded-md border border-border p-4">
-          <div className="flex items-start gap-3">
+        {cells.map((c) => { const ms = net.meetingsOf(c.id); return <div key={c.id} className="min-w-0 rounded-md border border-border p-4">
+          <div className="flex min-w-0 items-start gap-2">
             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">{c.mode === "online" ? <Wifi className="size-4" /> : <MapPin className="size-4" />}</span>
             <div className="min-w-0 flex-1"><p className="text-sm font-medium">Casa de {c.host_name} {ms.length > 0 ? <span className="ml-1 rounded-full bg-primary px-2 py-0.5 text-[10px] text-primary-foreground">ativa</span> : <span className="ml-1 text-[10px] text-muted-foreground">sem encontro no mês</span>}</p><p className="truncate text-[11px] text-muted-foreground">{FREQ_LABEL[c.frequency]} · {c.mode === "online" ? "Online" : `${c.neighborhood} · ${c.address}`}{c.member_id !== memberId && ` · ${net.person(c.member_id)?.name.split(" ")[0]}`}</p></div>
-            <Button size="icon" variant="ghost" aria-label="Editar célula" onClick={() => setEditing(c)}><Pencil className="size-4" /></Button>
-            <Button size="icon" variant="ghost" aria-label="Remover célula" onClick={() => { if (window.confirm("Remover esta célula e todos os encontros?")) actions.deleteCell.mutate(c.id); }}><Trash2 className="size-4" /></Button>
+            <Button size="icon" variant="ghost" className="shrink-0" aria-label="Editar célula" onClick={() => setEditing(c)}><Pencil className="size-4" /></Button>
+            <Button size="icon" variant="ghost" className="shrink-0" aria-label="Remover célula" onClick={() => { if (window.confirm("Remover esta célula e todos os encontros?")) actions.deleteCell.mutate(c.id); }}><Trash2 className="size-4" /></Button>
           </div>
-          {ms.length > 0 && <div className="mt-3 divide-y divide-border border-t border-border">{ms.map((m) => <div key={m.id} className="flex items-start justify-between gap-2 py-2 text-xs"><div><p className="font-medium">{m.date.split("-").reverse().join("/")} · {m.lives} vidas · {m.visitors} visitantes</p>{net.visitsOf({ meeting_id: m.id }).length > 0 && <p className="text-muted-foreground">{net.visitsOf({ meeting_id: m.id }).map((v) => v.name).join(", ")}</p>}<p className="text-muted-foreground">Parceiro de Deus {brl(Number(m.offering))}</p><PhotoButton id={m.id} /></div><Button size="icon" variant="ghost" aria-label="Excluir encontro" onClick={() => { if (window.confirm("Excluir este encontro?")) actions.deleteMeeting.mutate(m.id); }}><Trash2 className="size-4" /></Button></div>)}</div>}
+          {ms.length > 0 && <div className="mt-3 divide-y divide-border border-t border-border">{ms.map((m) => <div key={m.id} className="flex min-w-0 items-start justify-between gap-2 py-2 text-xs"><div className="min-w-0 flex-1"><p className="font-medium">{m.date.split("-").reverse().join("/")} · {m.lives} vidas · {m.visitors} visitantes</p>{net.visitsOf({ meeting_id: m.id }).length > 0 && <p className="text-muted-foreground">{net.visitsOf({ meeting_id: m.id }).map((v) => v.name).join(", ")}</p>}<p className="text-muted-foreground">Parceiro de Deus {brl(Number(m.offering))}</p><PhotoButton id={m.id} /></div><Button size="icon" variant="ghost" className="shrink-0" aria-label="Excluir encontro" onClick={() => { if (window.confirm("Excluir este encontro?")) actions.deleteMeeting.mutate(m.id); }}><Trash2 className="size-4" /></Button></div>)}</div>}
           {launch === c.id ? <MeetingForm net={net} cell={c} month={month} actions={actions} onDone={() => setLaunch(null)} /> : <Button size="sm" variant="outline" className="mt-3" onClick={() => setLaunch(c.id)}>Lançar encontro</Button>}
         </div>; })}
       </div>

@@ -268,8 +268,8 @@ export function TeamManager({ net, parentId, actions, onSelect }: { net: Network
     else actions.addMember.mutate({ parent_id: parentId, ...r.data }, { onSuccess: reset });
   }
 
-  return <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-    <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
+  return <div className="grid min-w-0 w-full grid-cols-1 gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+    <section className="min-w-0 w-full rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
       <h2 className="text-lg font-bold text-navy">{editing ? "Editar discípulo" : "Cadastrar discípulo"}</h2>
       <p className="mt-1 text-xs text-muted-foreground">Quando a pessoa criar a conta com este e-mail, ela entra automaticamente na sua equipe.</p>
       {full ? <p className="mt-5 rounded-md bg-primary-soft p-4 text-sm text-primary">Sua equipe já tem os 12 discípulos.</p> :
@@ -281,18 +281,18 @@ export function TeamManager({ net, parentId, actions, onSelect }: { net: Network
           <div className="flex gap-2"><Button type="submit" className="flex-1" disabled={busy}><UserPlus className="size-4" />{busy ? "Salvando..." : editing ? "Salvar" : "Cadastrar"}</Button>{editing && <Button type="button" variant="outline" onClick={reset}>Cancelar</Button>}</div>
         </form>}
     </section>
-    <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
+    <section className="min-w-0 w-full rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
       <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold text-navy">Minha equipe</h2><span className="text-sm text-muted-foreground"><strong className="text-navy">{kids.length}</strong> / 12</span></div>
       {pairing && <p className="mt-3 rounded-md bg-primary-soft p-3 text-xs text-primary">Toque no coração do cônjuge de {pairing.name} para formar o casal. <button className="underline" onClick={() => setPairing(null)}>Cancelar</button></p>}
       {!pairing && kids.length > 1 && <p className="mt-2 text-[11px] text-muted-foreground">Use o coração para marcar dois discípulos como casal: meta conjunta e mesma equipe.</p>}
       <div className="mt-5 divide-y divide-border">
         {kids.length === 0 && <EmptyState title="Cadastre seu primeiro discípulo" text="Informe o nome e o e-mail de cada um dos seus 12." />}
-        {kids.map((k) => <div key={k.id} className="flex items-center gap-3 py-3">
-          <button onClick={() => onSelect(k.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left"><Avatar name={k.name} /><span className="min-w-0"><span className="flex flex-wrap items-center gap-2 text-sm font-medium">{k.name}{!k.user_id && <Pending />}</span><span className="block truncate text-[11px] text-muted-foreground">{k.spouse_id && `♥ ${net.person(k.spouse_id)?.name.split(" ")[0]} · `}{k.email} · {net.childrenOf(k.id).length} discípulos</span></span></button>
-          {k.spouse_id ? <Button size="icon" variant="ghost" aria-label="Desfazer casal" title={`Casal com ${net.person(k.spouse_id)?.name ?? ""}`} onClick={() => { if (window.confirm("Desvincular este casal?")) actions.unlinkCouple.mutate(k.id); }}><HeartOff className="size-4 text-primary" /></Button>
-            : <Button size="icon" variant={pairing?.id === k.id ? "secondary" : "ghost"} aria-label="Marcar como casal" title="Marcar como casal" onClick={() => { if (!pairing) setPairing(k); else if (pairing.id === k.id) setPairing(null); else { actions.linkCouple.mutate({ a: pairing.id, b: k.id }); setPairing(null); } }}><Heart className="size-4" /></Button>}
-          <Button size="icon" variant="ghost" aria-label="Editar" onClick={() => startEdit(k)}><Pencil className="size-4" /></Button>
-          <Button size="icon" variant="ghost" aria-label="Remover" onClick={() => { const n = net.subtreeSize(k.id); if (window.confirm(n ? `Remover ${k.name} e as ${n} pessoas da rede dele(a), com todos os lançamentos?` : `Remover ${k.name}?`)) actions.deleteMember.mutate(k.id); }}><Trash2 className="size-4" /></Button>
+        {kids.map((k) => <div key={k.id} className="flex min-w-0 items-center gap-2 py-3">
+          <button onClick={() => onSelect(k.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left"><Avatar name={k.name} /><span className="min-w-0"><span className="flex flex-wrap items-center gap-2 text-sm font-medium">{k.name}{!k.user_id && <Pending />}</span><span className="block truncate text-[11px] text-muted-foreground">{k.spouse_id && `♥ ${net.person(k.spouse_id)?.name.split(" ")[0]} · `}{k.email} · {net.childrenOf(k.id).length} discípulos</span></span></button>
+          {k.spouse_id ? <Button size="icon" variant="ghost" className="shrink-0" aria-label="Desfazer casal" title={`Casal com ${net.person(k.spouse_id)?.name ?? ""}`} onClick={() => { if (window.confirm("Desvincular este casal?")) actions.unlinkCouple.mutate(k.id); }}><HeartOff className="size-4 text-primary" /></Button>
+            : <Button size="icon" variant={pairing?.id === k.id ? "secondary" : "ghost"} className="shrink-0" aria-label="Marcar como casal" title="Marcar como casal" onClick={() => { if (!pairing) setPairing(k); else if (pairing.id === k.id) setPairing(null); else { actions.linkCouple.mutate({ a: pairing.id, b: k.id }); setPairing(null); } }}><Heart className="size-4" /></Button>}
+          <Button size="icon" variant="ghost" className="shrink-0" aria-label="Editar" onClick={() => startEdit(k)}><Pencil className="size-4" /></Button>
+          <Button size="icon" variant="ghost" className="shrink-0" aria-label="Remover" onClick={() => { const n = net.subtreeSize(k.id); if (window.confirm(n ? `Remover ${k.name} e as ${n} pessoas da rede dele(a), com todos os lançamentos?` : `Remover ${k.name}?`)) actions.deleteMember.mutate(k.id); }}><Trash2 className="size-4" /></Button>
         </div>)}
       </div>
     </section>
