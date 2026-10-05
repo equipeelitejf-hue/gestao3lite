@@ -61,7 +61,35 @@ export function monthOptions() {
   }
   return out;
 }
-export const today = () => new Date().toISOString().slice(0, 10);
+export const formatLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+export const parseLocalDate = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+};
+export const today = () => formatLocalDate(new Date());
+
+const ENTRY_WEEKDAY: Partial<Record<EntryKind, number>> = { familia: 0, arena: 6, terca: 2 };
+export function isEntryDateValid(date: string, kind: EntryKind) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const parsed = parseLocalDate(date);
+  if (formatLocalDate(parsed) !== date) return false;
+  const weekday = ENTRY_WEEKDAY[kind];
+  return weekday === undefined || parsed.getDay() === weekday;
+}
+export function defaultEntryDate(kind: EntryKind, month: string, reference = new Date()) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const first = new Date(year, monthNumber - 1, 1, 12);
+  const last = new Date(year, monthNumber, 0, 12);
+  const referenceMonth = `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, "0")}`;
+  const anchor = month === referenceMonth ? reference : month < referenceMonth ? last : first;
+  const weekday = ENTRY_WEEKDAY[kind];
+  if (weekday === undefined) return formatLocalDate(anchor);
+  const candidate = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 12);
+  while (candidate.getMonth() === monthNumber - 1 && candidate.getDay() !== weekday) candidate.setDate(candidate.getDate() - 1);
+  if (candidate.getMonth() === monthNumber - 1) return formatLocalDate(candidate);
+  while (first.getDay() !== weekday) first.setDate(first.getDate() + 1);
+  return formatLocalDate(first);
+}
 
 const empty = (): Totals => ({ uniqueVisitors: 0, oferta: 0, terca: 0, arena: 0, familia: 0, arregimentacao: 0, membresia: 0, visitantes: 0, cells: 0, activeCells: 0, vidas: 0, cellVisitors: 0 });
 const SUM_KEYS = ["oferta", "terca", "arena", "familia", "visitantes", "cells", "activeCells", "vidas", "cellVisitors"] as const;
@@ -239,12 +267,14 @@ export function useActions(onNotice: (m: string) => void) {
 
   return {
     addEntry: run(async (v: { member_id: string; date: string; kind: EntryKind; value: number; note: string; people: VisitorInput[] }) => {
+      if (!isEntryDateValid(v.date, v.kind)) return { error: new Error("A data não corresponde ao dia deste culto.") };
       const { people, ...row } = v;
       const r = await supabase.from("entries").insert({ ...row, visitors: people.length }).select("id").single();
       if (r.error || !people.length) return r;
       return supabase.from("visits").insert(people.map((p) => ({ ...p, member_id: v.member_id, entry_id: r.data.id, date: v.date })));
     }, "Lançamento registrado."),
     updateEntry: run(async (v: { id: string; member_id: string; date: string; kind: EntryKind; value: number; note: string; people: VisitorInput[] }) => {
+      if (!isEntryDateValid(v.date, v.kind)) return { error: new Error("A data não corresponde ao dia deste culto.") };
       const r = await supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, visitors: v.people.length, note: v.note }).eq("id", v.id);
       if (r.error) return r;
       const d = await supabase.from("visits").delete().eq("entry_id", v.id);

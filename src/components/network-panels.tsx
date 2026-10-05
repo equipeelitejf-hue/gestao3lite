@@ -1,11 +1,15 @@
 import { ChevronRight, Heart, HeartOff, Plus, X, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { z } from "zod";
+import { format } from "date-fns";
+
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { KIND_LABEL, MEMBRESIA_WEIGHT, brl, initials, num, pct, today, type Actions, type Entry, type EntryKind, type Goals, type Member, type Network, type Totals, type VisitorInput, visitorKey } from "@/lib/network";
+import { KIND_LABEL, MEMBRESIA_WEIGHT, brl, initials, num, pct, defaultEntryDate, formatLocalDate, isEntryDateValid, parseLocalDate, today, type Actions, type Entry, type EntryKind, type Goals, type Member, type Network, type Totals, type VisitorInput, visitorKey } from "@/lib/network";
 import { cn } from "@/lib/utils";
 
 export const levelLabel = (level: number) => (level === 0 ? "Liderança Principal" : level === 1 ? "Discípulo direto" : `Rede · ${level}º nível`);
@@ -196,8 +200,9 @@ export function VisitorsField({ net, value, onChange }: { net: Network; value: V
 
 export function EntryForm({ net, memberId, month, editing, actions, onDone }: { net: Network; memberId: string; month: string; editing?: Entry | null; actions: Actions; onDone?: () => void }) {
   const [people, setPeople] = useState<VisitorInput[]>(() => (editing ? net.visitsOf({ entry_id: editing.id }).map((v) => ({ name: v.name, phone: v.phone })) : []));
-  const initialDate = editing?.date ?? (today().startsWith(month) ? today() : `${month}-01`);
+  const initialDate = editing?.date ?? defaultEntryDate(editing?.kind ?? "oferta", month);
   const [form, setForm] = useState({ date: initialDate, kind: (editing?.kind ?? "oferta") as EntryKind, value: editing ? String(editing.value) : "", note: editing?.note ?? "" });
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [error, setError] = useState("");
   const isMoney = form.kind === "oferta";
   const busy = actions.addEntry.isPending || actions.updateEntry.isPending;
@@ -207,6 +212,7 @@ export function EntryForm({ net, memberId, month, editing, actions, onDone }: { 
     const r = entrySchema.safeParse({ ...form, value: form.value.replace(/\./g, "").replace(",", ".") });
     if (!r.success) { setError(r.error.issues[0]?.message ?? "Dados inválidos"); return; }
     if (!isMoney && !Number.isInteger(r.data.value)) { setError("A arregimentação deve ser um número inteiro de pessoas"); return; }
+    if (!isEntryDateValid(r.data.date, r.data.kind)) { setError(`A data deve ser ${r.data.kind === "familia" ? "um domingo" : r.data.kind === "arena" ? "um sábado" : "uma terça-feira"} para este culto.`); return; }
     setError("");
     const after = { onSuccess: () => { setForm((f) => ({ ...f, value: "", note: "" })); setPeople([]); onDone?.(); } };
     if (editing) actions.updateEntry.mutate({ id: editing.id, member_id: editing.member_id, ...r.data, people: isMoney ? [] : people }, after);
@@ -214,9 +220,9 @@ export function EntryForm({ net, memberId, month, editing, actions, onDone }: { 
   }
 
   return <form onSubmit={submit} className="space-y-3">
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{(Object.keys(KIND_LABEL) as EntryKind[]).map((k) => <button type="button" key={k} onClick={() => setForm((f) => ({ ...f, kind: k }))} className={cn("rounded-md border px-2 py-2.5 text-xs font-medium transition-colors", form.kind === k ? "border-primary bg-primary-soft text-primary" : "border-border hover:bg-accent")}>{KIND_LABEL[k]}</button>)}</div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{(Object.keys(KIND_LABEL) as EntryKind[]).map((k) => <button type="button" key={k} onClick={() => setForm((f) => ({ ...f, kind: k, date: isEntryDateValid(f.date, k) ? f.date : defaultEntryDate(k, month, parseLocalDate(f.date)) }))} className={cn("rounded-md border px-2 py-2.5 text-xs font-medium transition-colors", form.kind === k ? "border-primary bg-primary-soft text-primary" : "border-border hover:bg-accent")}>{KIND_LABEL[k]}</button>)}</div>
     <div className="grid gap-2 sm:grid-cols-2">
-      <label className="text-[11px] text-muted-foreground">Data<Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="mt-1" /></label>
+      <div className="text-[11px] text-muted-foreground"><span>Data</span><Popover open={calendarOpen} onOpenChange={setCalendarOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="mt-1 w-full justify-start text-left font-normal">{form.date.split("-").reverse().join("/")}</Button></PopoverTrigger><PopoverContent align="start" className="w-auto p-0"><Calendar mode="single" selected={parseLocalDate(form.date)} month={parseLocalDate(form.date)} onSelect={(date) => { if (date) setForm((f) => ({ ...f, date: formatLocalDate(date) })); setCalendarOpen(false); }} disabled={(date) => !isEntryDateValid(format(date, "yyyy-MM-dd"), form.kind)} /></PopoverContent></Popover></div>
       <label className="text-[11px] text-muted-foreground">{isMoney ? "Valor da oferta (R$)" : "Pessoas no culto"}<Input inputMode="decimal" value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} placeholder={isMoney ? "0,00" : "0"} className="mt-1" /></label>
     </div>
     {!isMoney && <VisitorsField net={net} value={people} onChange={setPeople} />}
