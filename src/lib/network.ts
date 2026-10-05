@@ -9,7 +9,11 @@ export type CellMode = "presencial" | "online";
 export type CellFreq = "semanal" | "quinzenal" | "mensal";
 export type Cell = { id: string; member_id: string; host_name: string; mode: CellMode; frequency: CellFreq; neighborhood: string; address: string };
 export type Meeting = { id: string; cell_id: string; date: string; month: string; lives: number; visitors: number; offering: number };
-export type Totals = { oferta: number; terca: number; arena: number; familia: number; arregimentacao: number; membresia: number; visitantes: number; cells: number; activeCells: number; vidas: number; cellVisitors: number };
+export type Visit = { id: string; member_id: string; entry_id: string | null; meeting_id: string | null; name: string; phone: string; date: string };
+export type VisitorInput = { name: string; phone: string };
+/** Chave de desduplicação: telefone (8+ dígitos) ou nome normalizado. */
+export const visitorKey = (v: { name: string; phone: string }) => { const d = v.phone.replace(/\D/g, ""); return d.length >= 8 ? `t:${d.slice(-9)}` : `n:${v.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim()}`; };
+export type Totals = { uniqueVisitors: number; oferta: number; terca: number; arena: number; familia: number; arregimentacao: number; membresia: number; visitantes: number; cells: number; activeCells: number; vidas: number; cellVisitors: number };
 export type Goals = { oferta: number; membresia: number; cells: number };
 export const FREQ_LABEL: Record<CellFreq, string> = { semanal: "Semanal", quinzenal: "Quinzenal", mensal: "Mensal" };
 
@@ -23,9 +27,11 @@ export const KIND_LABEL: Record<EntryKind, string> = {
 /** Peso de cada culto na membresia. */
 export const MEMBRESIA_WEIGHT = { terca: 0.3, arena: 0.5, familia: 1 } as const;
 
-/** Membresia arredondada: decimal ≥ 0,5 sobe, ≤ 0,4 desce. */
+/** Divisor fixo do ciclo mensal (4 semanas). */
+export const MEMBRESIA_WEEKS = 4;
+/** Membresia = média semanal (soma ponderada ÷ 4), arredondada: decimal ≥ 0,5 sobe, ≤ 0,4 desce. */
 export function membresia(t: { terca: number; arena: number; familia: number }) {
-  const raw = t.terca * MEMBRESIA_WEIGHT.terca + t.arena * MEMBRESIA_WEIGHT.arena + t.familia * MEMBRESIA_WEIGHT.familia;
+  const raw = (t.terca * MEMBRESIA_WEIGHT.terca + t.arena * MEMBRESIA_WEIGHT.arena + t.familia * MEMBRESIA_WEIGHT.familia) / MEMBRESIA_WEEKS;
   return Math.round(Math.round(raw * 100) / 100);
 }
 
@@ -57,7 +63,7 @@ export function monthOptions() {
 }
 export const today = () => new Date().toISOString().slice(0, 10);
 
-const empty = (): Totals => ({ oferta: 0, terca: 0, arena: 0, familia: 0, arregimentacao: 0, membresia: 0, visitantes: 0, cells: 0, activeCells: 0, vidas: 0, cellVisitors: 0 });
+const empty = (): Totals => ({ uniqueVisitors: 0, oferta: 0, terca: 0, arena: 0, familia: 0, arregimentacao: 0, membresia: 0, visitantes: 0, cells: 0, activeCells: 0, vidas: 0, cellVisitors: 0 });
 const SUM_KEYS = ["oferta", "terca", "arena", "familia", "visitantes", "cells", "activeCells", "vidas", "cellVisitors"] as const;
 function add(t: Totals, o: Totals) { for (const k of SUM_KEYS) t[k] += o[k]; }
 function finish(t: Totals) { t.arregimentacao = t.terca + t.arena + t.familia; t.membresia = membresia(t); return t; }
@@ -73,8 +79,11 @@ export class Network {
   meetingsByCell = new Map<string, Meeting[]>();
   private treeCache = new Map<string, Totals>();
   private goalCache = new Map<string, Goals>();
+  visitsByMember = new Map<string, Visit[]>();
+  private keyCache = new Map<string, Set<string>>();
 
-  constructor(public members: Member[], public entries: Entry[], goals: ({ member_id: string } & Goals)[], public team: Goals, public cells: Cell[] = [], public meetings: Meeting[] = []) {
+  constructor(public members: Member[], public entries: Entry[], goals: ({ member_id: string } & Goals)[], public team: Goals, public cells: Cell[] = [], public meetings: Meeting[] = [], public visits: Visit[] = []) {
+    for (const v of visits) { const l = this.visitsByMember.get(v.member_id) ?? []; l.push(v); this.visitsByMember.set(v.member_id, l); }
     for (const m of members) this.byId.set(m.id, m);
     for (const m of [...members].sort((a, b) => a.name.localeCompare(b.name))) {
       if (m.parent_id && this.byId.has(m.parent_id)) {
@@ -111,7 +120,13 @@ export class Network {
   /** Um representante por unidade (casais aparecem uma vez). */
   childUnits(id: string) { const seen = new Set<string>(); return this.childrenOf(id).filter((c) => { const k = this.unitKey(c.id); if (seen.has(k)) return false; seen.add(k); return true; }); }
   goalOf(id: string): Goals { const g = zeroGoals(); for (const u of this.unit(id)) { const x = this.goals.get(u); if (x) { g.oferta = Math.max(g.oferta, x.oferta); g.membresia = Math.max(g.membresia, x.membresia); g.cells = Math.max(g.cells, x.cells); } } return g; }
-  ownTotals(id: string): Totals { const t = empty(); for (const u of this.unit(id)) { const r = this.raw.get(u); if (r) add(t, r); } return finish(t); }
+  ownTotals(id: string): Totals { const t = empty(); for (const u of this.unit(id)) { const r = this.raw.get(u); if (r) add(t, r); } finish(t); t.uniqueVisitors = this.ownKeys(id).size; return t; }
+  private ownKeys(id: string) { const s = new Set<string>(); for (const u of this.unit(id)) for (const v of this.visitsByMember.get(u) ?? []) s.add(visitorKey(v)); return s; }
+  /** Vidas únicas visitantes na pessoa/casal + rede abaixo (sem duplicar entre células e cultos). */
+  treeKeys(id: string): Set<string> { const k = this.unitKey(id); const hit = this.keyCache.get(k); if (hit) return hit; const s = this.ownKeys(id); for (const c of this.childUnits(id)) for (const x of this.treeKeys(c.id)) s.add(x); this.keyCache.set(k, s); return s; }
+  visitsOf(src: { entry_id?: string; meeting_id?: string }) { return this.visits.filter((v) => (src.entry_id && v.entry_id === src.entry_id) || (src.meeting_id && v.meeting_id === src.meeting_id)); }
+  /** Nomes já vistos na rede (para sugerir). */
+  knownVisitors() { const m = new Map<string, VisitorInput>(); for (const v of this.visits) { const k = visitorKey(v); if (!m.has(k) || (v.phone && !m.get(k)!.phone)) m.set(k, { name: v.name, phone: v.phone }); } return [...m.values()].sort((a, b) => a.name.localeCompare(b.name)); }
   cellsOf(id: string) { return this.unit(id).flatMap((u) => this.cellsByMember.get(u) ?? []); }
   meetingsOf(cellId: string) { return (this.meetingsByCell.get(cellId) ?? []).sort((a, b) => b.date.localeCompare(a.date)); }
   entriesOf(id: string) { const u = this.unit(id); return this.entries.filter((e) => u.includes(e.member_id)).sort((a, b) => b.date.localeCompare(a.date)); }
@@ -131,6 +146,7 @@ export class Network {
     const t = this.ownTotals(id);
     for (const c of this.childUnits(id)) add(t, this.treeTotals(c.id));
     finish(t);
+    t.uniqueVisitors = this.treeKeys(id).size;
     this.treeCache.set(key, t);
     return t;
   }
@@ -175,15 +191,16 @@ export function useNetwork(month: string, enabled: boolean) {
     queryKey: ["network", month],
     enabled,
     queryFn: async () => {
-      const [members, entries, goals, team, cells, meetings] = await Promise.all([
+      const [members, entries, goals, team, cells, meetings, visits] = await Promise.all([
         supabase.from("members").select(MEMBER_COLS),
         supabase.from("entries").select("id, member_id, date, month, kind, value, visitors, note").eq("month", month),
         supabase.from("personal_goals").select("member_id, value, membresia, cells").eq("month", month),
         supabase.from("team_goals").select("value, membresia, cells").eq("month", month).maybeSingle(),
         supabase.from("cells").select("id, member_id, host_name, mode, frequency, neighborhood, address"),
         supabase.from("cell_meetings").select("id, cell_id, date, month, lives, visitors, offering").eq("month", month),
+        supabase.from("visits").select("id, member_id, entry_id, meeting_id, name, phone, date").eq("month", month),
       ]);
-      const err = members.error ?? entries.error ?? goals.error ?? team.error ?? cells.error ?? meetings.error;
+      const err = members.error ?? entries.error ?? goals.error ?? team.error ?? cells.error ?? meetings.error ?? visits.error;
       if (err) throw err;
       return new Network(
         members.data ?? [],
@@ -192,6 +209,7 @@ export function useNetwork(month: string, enabled: boolean) {
         { oferta: Number(team.data?.value ?? 0), membresia: Number(team.data?.membresia ?? 0), cells: Number(team.data?.cells ?? 0) },
         (cells.data ?? []) as Cell[],
         (meetings.data ?? []).map((m) => ({ ...m, offering: Number(m.offering) })),
+        (visits.data ?? []) as Visit[],
       );
     },
   });
@@ -220,8 +238,19 @@ export function useActions(onNotice: (m: string) => void) {
     useMutation({ mutationFn: async (v: T) => { const { error } = await fn(v); if (error) throw error; }, onSuccess: done(msg), onError: fail });
 
   return {
-    addEntry: run((v: { member_id: string; date: string; kind: EntryKind; value: number; visitors: number; note: string }) => supabase.from("entries").insert(v), "Lançamento registrado."),
-    updateEntry: run((v: { id: string; date: string; kind: EntryKind; value: number; visitors: number; note: string }) => supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, visitors: v.visitors, note: v.note }).eq("id", v.id), "Lançamento atualizado."),
+    addEntry: run(async (v: { member_id: string; date: string; kind: EntryKind; value: number; note: string; people: VisitorInput[] }) => {
+      const { people, ...row } = v;
+      const r = await supabase.from("entries").insert({ ...row, visitors: people.length }).select("id").single();
+      if (r.error || !people.length) return r;
+      return supabase.from("visits").insert(people.map((p) => ({ ...p, member_id: v.member_id, entry_id: r.data.id, date: v.date })));
+    }, "Lançamento registrado."),
+    updateEntry: run(async (v: { id: string; member_id: string; date: string; kind: EntryKind; value: number; note: string; people: VisitorInput[] }) => {
+      const r = await supabase.from("entries").update({ date: v.date, kind: v.kind, value: v.value, visitors: v.people.length, note: v.note }).eq("id", v.id);
+      if (r.error) return r;
+      const d = await supabase.from("visits").delete().eq("entry_id", v.id);
+      if (d.error || !v.people.length) return d;
+      return supabase.from("visits").insert(v.people.map((p) => ({ ...p, member_id: v.member_id, entry_id: v.id, date: v.date })));
+    }, "Lançamento atualizado."),
     deleteEntry: run((id: string) => supabase.from("entries").delete().eq("id", id), "Lançamento excluído."),
     setGoal: run(async (v: { member_ids: string[]; month: string; goals: Goals }) => supabase.from("personal_goals").upsert(v.member_ids.map((member_id) => ({ member_id, month: v.month, value: v.goals.oferta, membresia: v.goals.membresia, cells: v.goals.cells }))), "Meta salva."),
     setTeamGoal: run((v: { month: string; goals: Goals }) => supabase.from("team_goals").upsert({ month: v.month, value: v.goals.oferta, membresia: v.goals.membresia, cells: v.goals.cells }), "Meta da equipe salva."),
@@ -233,7 +262,12 @@ export function useActions(onNotice: (m: string) => void) {
     unlinkCouple: run((id: string) => supabase.rpc("unlink_couple", { _a: id }), "Casal desvinculado."),
     saveCell: run((v: Omit<Cell, "id"> & { id?: string }) => (v.id ? supabase.from("cells").update(v).eq("id", v.id) : supabase.from("cells").insert(v)), "Célula salva."),
     deleteCell: run((id: string) => supabase.from("cells").delete().eq("id", id), "Célula removida."),
-    addMeeting: run((v: { cell_id: string; date: string; lives: number; visitors: number; offering: number; photo: string }) => supabase.from("cell_meetings").insert(v), "Encontro registrado."),
+    addMeeting: run(async (v: { cell_id: string; member_id: string; date: string; lives: number; offering: number; photo: string; people: VisitorInput[] }) => {
+      const { people, member_id, ...row } = v;
+      const r = await supabase.from("cell_meetings").insert({ ...row, visitors: people.length }).select("id").single();
+      if (r.error || !people.length) return r;
+      return supabase.from("visits").insert(people.map((p) => ({ ...p, member_id, meeting_id: r.data.id, date: v.date })));
+    }, "Encontro registrado."),
     deleteMeeting: run((id: string) => supabase.from("cell_meetings").delete().eq("id", id), "Encontro excluído."),
   };
 }
