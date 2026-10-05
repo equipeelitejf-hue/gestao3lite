@@ -20,7 +20,7 @@ const TABS: { id: Tab; label: string; short: string; icon: typeof Home }[] = [
   { id: "cells", label: "Células", short: "Células", icon: Home2 },
   { id: "team", label: "Minha equipe", short: "Equipe", icon: UserPlus },
   { id: "goals", label: "Metas", short: "Metas", icon: Target },
-  { id: "network", label: "Rede", short: "Rede", icon: UsersRound },
+  { id: "network", label: "Circuito", short: "Circuito", icon: UsersRound },
 ];
 
 export function MinisterialDashboard() {
@@ -120,13 +120,13 @@ export function MinisterialDashboard() {
         </aside>
         <main className="min-w-0 flex-1 px-4 pb-28 pt-7 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">
           <MonthSelect value={month} options={months} onChange={setMonth} className="mb-5 h-10 w-full sm:hidden" />
-          {!member || !net ? (netQ.isError ? <EmptyState title="Não foi possível carregar a rede" text="Tente novamente em instantes." action={<Button onClick={() => netQ.refetch()}>Tentar novamente</Button>} /> : <LoadingBlock />) : <div className="animate-fade-in">
+          {!member || !net ? (netQ.isError ? <EmptyState title="Não foi possível carregar o circuito" text="Tente novamente em instantes." action={<Button onClick={() => netQ.refetch()}>Tentar novamente</Button>} /> : <LoadingBlock />) : <div className="animate-fade-in">
             {tab === "overview" && (isRoot ? <LeaderView net={net} me={member} month={month} onExport={exportReport} onSelect={setSelected} onTab={setTab} /> : <DiscipleView net={net} me={member} onTab={setTab} />)}
             {tab === "entries" && <EntriesView net={net} me={member} month={month} actions={actions} />}
             {tab === "team" && <><PageHeading eyebrow="Cadastro" title="Minha equipe" description="Cadastre, edite ou remova os seus discípulos diretos." /><div className="mt-8">{isRoot && isAdmin && <CoLeaderCard net={net} rootId={member.id} actions={actions} />}<TeamManager net={net} parentId={member.id} actions={actions} onSelect={setSelected} /></div></>}
             {tab === "goals" && <><PageHeading eyebrow="Metas" title={`Metas de ${monthLabel(month).toLowerCase()}`} description="Parceiro de Deus: meta de oferta definida com cada discípulo." /><div className="mt-8"><GoalsEditor net={net} month={month} parentId={member.id} isAdmin={isAdmin && isRoot} actions={actions} /></div></>}
             {tab === "cells" && <><PageHeading eyebrow="Células" title="Minhas células" description="Cadastre células e lance os encontros com foto." /><div className="mt-8"><CellsView net={net} memberId={member.id} month={month} actions={actions} /></div></>}
-            {tab === "network" && <><PageHeading eyebrow="Rede" title="Minha rede" description="Resultados somados automaticamente em toda a hierarquia." action={isRoot ? <Button variant="outline" onClick={exportReport}><Download className="size-4" />Exportar</Button> : undefined} /><div className="mt-8"><NetworkTree net={net} rootId={member.id} onSelect={setSelected} /></div></>}
+            {tab === "network" && <><PageHeading eyebrow="Circuito" title="Meu circuito" description="Resultados somados automaticamente em toda a hierarquia." action={isRoot ? <Button variant="outline" onClick={exportReport}><Download className="size-4" />Exportar</Button> : undefined} /><div className="mt-8"><NetworkTree net={net} rootId={member.id} onSelect={setSelected} /></div></>}
           </div>}
         </main>
       </div>
@@ -168,14 +168,14 @@ function LeaderView({ net, me, month, onExport, onSelect, onTab }: { net: Networ
     { label: "Membresia", value: num(t.membresia), note: net.team.membresia ? `${pct(t.membresia, net.team.membresia)}% da meta de ${num(net.team.membresia)}` : "30% Terça + 50% Arena + 100% Família", icon: TrendingUp },
     { label: "Células ativas", value: `${t.activeCells}/${t.cells}`, note: net.team.cells ? `${pct(t.activeCells, net.team.cells)}% da meta de ${net.team.cells}` : "Meta de células não definida", icon: Home2 },
     { label: "Arregimentação", value: num(t.arregimentacao), note: `${t.terca} Terça · ${t.arena} Arena · ${t.familia} Família`, icon: UsersRound },
-    { label: "Rede ministerial", value: String(size), note: `${directs.length} diretos · ${level2} no 2º nível`, icon: UserRound },
+    { label: "Circuito ministerial", value: String(size), note: `${directs.length} diretos · ${level2} no 2º nível`, icon: UserRound },
   ];
   return <div>
-    <PageHeading eyebrow="Painel do líder" title={`Olá, ${me.name.split(" ")[0]}`} description={`Resultados de ${monthLabel(month).toLowerCase()} somados em toda a rede.`} action={<Button onClick={onExport}><Download className="size-4" />Exportar relatório</Button>} />
+    <PageHeading eyebrow="Painel do líder" title={`Olá, ${me.name.split(" ")[0]}`} description={`Resultados de ${monthLabel(month).toLowerCase()} somados em todo o circuito.`} action={<Button onClick={onExport}><Download className="size-4" />Exportar relatório</Button>} />
     <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{cards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
       <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
-        <SectionHeading title="Meus 12" subtitle="Ordenados pela membresia da rede de cada um" action={directs.length ? "Ver rede completa" : undefined} onAction={() => onTab("network")} />
+        <SectionHeading title="Meus 12" subtitle="Ordenados pela membresia do circuito de cada um" action={directs.length ? "Ver circuito completo" : undefined} onAction={() => onTab("network")} />
         <div className="mt-6 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 rounded-md bg-secondary p-4 sm:p-6">
           <HierarchyNode value="1" label="Líder" featured /><div className="hierarchy-line" /><HierarchyNode value={`${directs.length}`} label="de 12" /><div className="hierarchy-line" /><HierarchyNode value={`${level2}`} label="de 144" />
         </div>
@@ -190,7 +190,7 @@ function LeaderView({ net, me, month, onExport, onSelect, onTab }: { net: Networ
 }
 
 function RecentEntries({ net, entries }: { net: Network; entries: Entry[] }) {
-  return <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title="Lançamentos recentes" subtitle="Movimento da rede no mês" /><div className="mt-6 space-y-5">{entries.length ? entries.map((e) => <div key={e.id} className="flex gap-3"><div className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary"><Clock3 className="size-3.5" /></div><div><p className="text-sm leading-5"><span className="font-medium">{net.person(e.member_id)?.name ?? "—"}</span> lançou {e.kind === "oferta" ? brl(Number(e.value)) : `${Number(e.value)} pessoas`}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>{e.date.split("-").reverse().join("/")}</span><span className="size-1 rounded-full bg-border" /><span>{KIND_LABEL[e.kind]}</span></div></div></div>) : <p className="text-sm text-muted-foreground">Nenhum lançamento neste mês.</p>}</div></section>;
+  return <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title="Lançamentos recentes" subtitle="Movimento do circuito no mês" /><div className="mt-6 space-y-5">{entries.length ? entries.map((e) => <div key={e.id} className="flex gap-3"><div className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary"><Clock3 className="size-3.5" /></div><div><p className="text-sm leading-5"><span className="font-medium">{net.person(e.member_id)?.name ?? "—"}</span> lançou {e.kind === "oferta" ? brl(Number(e.value)) : `${Number(e.value)} pessoas`}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>{e.date.split("-").reverse().join("/")}</span><span className="size-1 rounded-full bg-border" /><span>{KIND_LABEL[e.kind]}</span></div></div></div>) : <p className="text-sm text-muted-foreground">Nenhum lançamento neste mês.</p>}</div></section>;
 }
 
 function DiscipleView({ net, me, onTab }: { net: Network; me: Member; onTab: (t: Tab) => void }) {
@@ -217,8 +217,8 @@ function DiscipleView({ net, me, onTab }: { net: Network; me: Member; onTab: (t:
       </section>
       <div className="space-y-6">
         <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Minhas metas do mês" subtitle="Membresia e células ativas" action="Células" onAction={() => onTab("cells")} /><div className="mt-5 grid grid-cols-2 gap-3"><MiniStat value={`${num(own.membresia)} / ${num(net.goalOf(me.id).membresia)}`} label="Membresia" /><MiniStat value={`${own.activeCells} / ${net.goalOf(me.id).cells}`} label="Células ativas" /></div></section>
-        <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Minha equipe" subtitle={kids.length ? "Discípulos abaixo de você" : "Cadastre seus discípulos"} action={kids.length ? "Ver rede" : "Cadastrar"} onAction={() => onTab(kids.length ? "network" : "team")} /><div className="mt-5 flex items-end justify-between"><div><strong className="text-4xl font-bold text-navy">{kids.length}</strong><span className="text-lg text-muted-foreground"> / 12</span><p className="mt-1 text-xs text-muted-foreground">discípulos</p></div><div className="flex -space-x-2">{kids.slice(0, 3).map((k) => <span key={k.id} className="grid size-9 place-items-center rounded-full border-2 border-card bg-accent text-[10px] font-medium">{initials(k.name)}</span>)}{kids.length > 3 && <span className="grid size-9 place-items-center rounded-full border-2 border-card bg-accent text-[10px] font-medium">+{kids.length - 3}</span>}</div></div></section>
-        {kids.length > 0 && <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Com a minha rede" subtitle="Seu resultado somado ao da sua equipe" /><div className="mt-5 grid grid-cols-2 gap-3"><MiniStat value={brl(tree.oferta)} label="Parceiro de Deus" /><MiniStat value={num(tree.membresia)} label="Membresia" /><MiniStat value={`${tree.activeCells}`} label="Células ativas" /></div></section>}
+        <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Minha equipe" subtitle={kids.length ? "Discípulos abaixo de você" : "Cadastre seus discípulos"} action={kids.length ? "Ver circuito" : "Cadastrar"} onAction={() => onTab(kids.length ? "network" : "team")} /><div className="mt-5 flex items-end justify-between"><div><strong className="text-4xl font-bold text-navy">{kids.length}</strong><span className="text-lg text-muted-foreground"> / 12</span><p className="mt-1 text-xs text-muted-foreground">discípulos</p></div><div className="flex -space-x-2">{kids.slice(0, 3).map((k) => <span key={k.id} className="grid size-9 place-items-center rounded-full border-2 border-card bg-accent text-[10px] font-medium">{initials(k.name)}</span>)}{kids.length > 3 && <span className="grid size-9 place-items-center rounded-full border-2 border-card bg-accent text-[10px] font-medium">+{kids.length - 3}</span>}</div></div></section>
+        {kids.length > 0 && <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-6"><SectionHeading title="Com o meu circuito" subtitle="Seu resultado somado ao da sua equipe" /><div className="mt-5 grid grid-cols-2 gap-3"><MiniStat value={brl(tree.oferta)} label="Parceiro de Deus" /><MiniStat value={num(tree.membresia)} label="Membresia" /><MiniStat value={`${tree.activeCells}`} label="Células ativas" /></div></section>}
       </div>
     </div>
   </div>;
@@ -227,7 +227,7 @@ function DiscipleView({ net, me, onTab }: { net: Network; me: Member; onTab: (t:
 function EntriesView({ net, me, month, actions }: { net: Network; me: Member; month: string; actions: Actions }) {
   const [editing, setEditing] = useState<Entry | null>(null);
   return <div>
-    <PageHeading eyebrow="Lançamentos" title="Registrar resultados" description="Cada lançamento atualiza na hora os totais de toda a rede acima de você." />
+    <PageHeading eyebrow="Lançamentos" title="Registrar resultados" description="Cada lançamento atualiza na hora os totais de todo o circuito acima de você." />
     <div className="mt-8 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
       <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title={editing ? "Editar lançamento" : "Novo lançamento"} subtitle="Oferta Parceiro de Deus ou arregimentação por culto" action={editing ? "Cancelar" : undefined} onAction={() => setEditing(null)} /><div className="mt-5"><EntryForm net={net} key={editing?.id ?? `new-${month}`} memberId={me.id} month={month} editing={editing} actions={actions} onDone={() => setEditing(null)} /></div></section>
       <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title="Meu histórico" subtitle={monthLabel(month)} /><div className="mt-5"><EntryList net={net} memberId={me.id} actions={actions} onEdit={setEditing} /></div></section>
