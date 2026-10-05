@@ -66,7 +66,7 @@ export const parseLocalDate = (value: string) => {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day, 12);
 };
-export const today = () => formatLocalDate(new Date());
+export const today = () => new Date().toISOString().slice(0, 10);
 
 const ENTRY_WEEKDAY: Partial<Record<EntryKind, number>> = { familia: 0, arena: 6, terca: 2 };
 export function isEntryDateValid(date: string, kind: EntryKind) {

@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { KIND_LABEL, MEMBRESIA_WEIGHT, brl, initials, num, pct, defaultEntryDate, formatLocalDate, isEntryDateValid, parseLocalDate, today, type Actions, type Entry, type EntryKind, type Goals, type Member, type Network, type Totals, type VisitorInput, visitorKey } from "@/lib/network";
+import { KIND_LABEL, MEMBRESIA_WEIGHT, brl, initials, num, pct, defaultEntryDate, formatLocalDate, isEntryDateValid, parseLocalDate, type Actions, type Entry, type EntryKind, type Goals, type Member, type Network, type Totals, type VisitorInput, visitorKey } from "@/lib/network";
 import { cn } from "@/lib/utils";
 
 export const levelLabel = (level: number) => (level === 0 ? "Liderança Principal" : level === 1 ? "Discípulo direto" : `Rede · ${level}º nível`);
