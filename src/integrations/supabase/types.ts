@@ -262,6 +262,64 @@ export type Database = {
         }
         Relationships: []
       }
+      visits: {
+        Row: {
+          created_at: string
+          date: string
+          entry_id: string | null
+          id: string
+          meeting_id: string | null
+          member_id: string
+          month: string
+          name: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          entry_id?: string | null
+          id?: string
+          meeting_id?: string | null
+          member_id: string
+          month?: string
+          name: string
+          phone?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          entry_id?: string | null
+          id?: string
+          meeting_id?: string | null
+          member_id?: string
+          month?: string
+          name?: string
+          phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visits_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "cell_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
