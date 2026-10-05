@@ -67,7 +67,7 @@ function CellForm({ memberId, editing, actions, onDone }: { memberId: string; ed
     setError("");
     actions.saveCell.mutate({ ...data, member_id: editing?.member_id ?? memberId, ...(editing ? { id: editing.id } : {}) }, { onSuccess: onDone });
   }
-  const opt = (on: boolean) => cn("rounded-md border px-2 py-2.5 text-xs font-medium", on ? "border-primary bg-primary-soft text-primary" : "border-border hover:bg-accent");
+  const opt = (on: boolean) => cn("min-w-0 rounded-md border px-2 py-2.5 text-center text-xs leading-tight font-medium", on ? "border-primary bg-primary-soft text-primary" : "border-border hover:bg-accent");
   return <form onSubmit={submit} className="space-y-3">
     <div className="grid grid-cols-2 gap-2">{(["presencial", "online"] as const).map((m) => <button type="button" key={m} className={opt(f.mode === m)} onClick={() => setF((x) => ({ ...x, mode: m }))}>{m === "presencial" ? "Presencial" : "Online"}</button>)}</div>
     <div className="grid grid-cols-3 gap-2">{(Object.keys(FREQ_LABEL) as CellFreq[]).map((k) => <button type="button" key={k} className={opt(f.frequency === k)} onClick={() => setF((x) => ({ ...x, frequency: k }))}>{FREQ_LABEL[k]}</button>)}</div>
@@ -113,7 +113,7 @@ function MeetingForm({ net, cell, month, actions, onDone }: { net: Network; cell
     </div>
     <VisitorsField net={net} value={people} onChange={setPeople} />
     {photo ? <div className="relative"><img src={photo} alt="Foto da célula" className="max-h-56 w-full rounded-md object-cover" /><Button type="button" size="sm" variant="secondary" className="absolute right-2 top-2" onClick={() => setPhoto("")}>Trocar foto</Button></div>
-      : <div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => setCam(true)}><Camera className="size-4" />Tirar foto</Button><Button type="button" variant="outline" onClick={() => gallery.current?.click()}><ImageIcon className="size-4" />Escolher da galeria</Button></div>}
+      : <div className="grid grid-cols-1 gap-2 min-[440px]:grid-cols-2"><Button type="button" className="min-w-0 flex-wrap" onClick={() => setCam(true)}><Camera className="size-4 shrink-0" />Tirar foto</Button><Button type="button" variant="outline" className="min-w-0 flex-wrap" onClick={() => gallery.current?.click()}><ImageIcon className="size-4 shrink-0" />Escolher da galeria</Button></div>}
     <input ref={gallery} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
     <p className="text-[11px] text-muted-foreground">A foto tirada pelo app também é salva no seu aparelho. O valor de Parceiro de Deus soma no resultado do líder da célula.</p>
     {error && <p className="text-xs text-destructive">{error}</p>}

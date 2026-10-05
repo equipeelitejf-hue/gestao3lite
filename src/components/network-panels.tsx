@@ -141,7 +141,7 @@ export function GoalsEditor({ net, month, parentId, isAdmin, actions }: { net: N
         const got: Goals = { oferta: t.oferta, membresia: t.membresia, cells: t.activeCells };
         return <div key={k.id} className="grid gap-3 py-4 md:grid-cols-[1fr_auto] md:items-center">
           <div className="flex min-w-0 items-center gap-3"><Avatar name={net.unitName(k.id)} /><div className="min-w-0"><p className="truncate text-sm font-medium">{net.unitName(k.id)}{net.spouseOf(k.id) && <span className="ml-2 text-[10px] text-primary">meta conjunta</span>}</p><p className="text-[11px] text-muted-foreground">{GOAL_FIELDS.map((f) => `${f.label} ${fmt(f.key, got[f.key])}${g[f.key] ? ` (${pct(got[f.key], g[f.key])}%)` : ""}`).join(" · ")}</p></div></div>
-          <div className="grid grid-cols-3 gap-2">{GOAL_FIELDS.map((f) => <label key={f.key} className="text-[10px] text-muted-foreground">{f.label}<NumberInput money={f.money} value={g[f.key]} onSave={(v) => actions.setGoal.mutate({ member_ids: net.unit(k.id), month, goals: { ...g, [f.key]: v } })} /></label>)}</div>
+          <div className="grid grid-cols-2 gap-2 min-[440px]:grid-cols-3">{GOAL_FIELDS.map((f) => <label key={f.key} className="text-[10px] text-muted-foreground">{f.label}<NumberInput money={f.money} value={g[f.key]} onSave={(v) => actions.setGoal.mutate({ member_ids: net.unit(k.id), month, goals: { ...g, [f.key]: v } })} /></label>)}</div>
         </div>;
       })}
     </div>
@@ -187,8 +187,8 @@ export function VisitorsField({ net, value, onChange }: { net: Network; value: V
   return <div className="rounded-md border border-border p-3">
     <p className="text-[11px] font-medium text-muted-foreground">Visitantes ({value.length})</p>
     {value.length > 0 && <ul className="mt-2 space-y-1">{value.map((v, i) => <li key={i} className="flex items-center gap-2 rounded bg-secondary px-2 py-1 text-xs"><span className="flex-1 truncate">{v.name}{v.phone && <span className="text-muted-foreground"> · {v.phone}</span>}</span><button type="button" aria-label="Remover visitante" onClick={() => onChange(value.filter((_, j) => j !== i))}><X className="size-3.5" /></button></li>)}</ul>}
-    <div className="mt-2 grid grid-cols-[1fr_0.8fr_auto] gap-2">
-      <Input list="known-visitors" placeholder="Nome do visitante" value={d.name} maxLength={100} onChange={(e) => { const name = e.target.value; const k = known.find((x) => x.name === name); setD((x) => ({ name, phone: k?.phone ?? x.phone })); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2 min-[440px]:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_auto]">
+      <Input list="known-visitors" placeholder="Nome do visitante" value={d.name} maxLength={100} className="col-span-2 min-[440px]:col-span-1" onChange={(e) => { const name = e.target.value; const k = known.find((x) => x.name === name); setD((x) => ({ name, phone: k?.phone ?? x.phone })); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
       <Input inputMode="tel" placeholder="Telefone (opcional)" value={d.phone} maxLength={30} onChange={(e) => setD((x) => ({ ...x, phone: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
       <Button type="button" size="icon" variant="outline" aria-label="Adicionar visitante" onClick={add}><Plus className="size-4" /></Button>
     </div>

@@ -94,14 +94,14 @@ export function MinisterialDashboard() {
     <div className="min-h-screen bg-background text-foreground">
       {splash}
       <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-[76px] max-w-[1600px] items-center gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-[76px] max-w-[1600px] items-center gap-2 px-3 sm:gap-4 sm:px-6 lg:px-8">
           <button className="lg:hidden" onClick={() => setMobileMenu(true)} aria-label="Abrir menu"><Menu className="size-6" /></button>
-          <img src={logoBlue.url} alt="3Lite Supernova" className="h-11 w-auto" />
+          <img src={logoBlue.url} alt="3Lite Supernova" className="h-9 w-auto shrink-0 sm:h-11" />
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
             <MonthSelect value={month} options={months} onChange={setMonth} className="hidden h-11 sm:block" />
             {member && <div className="relative">
-              <Button variant="outline" className="h-11 min-w-[172px] justify-between px-3" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen}>
-                <span className="flex min-w-0 items-center gap-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-navy text-[10px] text-primary-foreground">{initials(member.name)}</span><span className="truncate text-left"><span className="block max-w-[140px] truncate text-xs font-medium">{member.name}</span><span className="block text-[10px] font-book text-muted-foreground">{levelLabel(member.level)}</span></span></span>
+              <Button variant="outline" className="h-10 min-w-0 max-w-[38vw] shrink-0 justify-between px-2 sm:h-11 sm:min-w-[172px] sm:max-w-none sm:px-3 max-[390px]:max-w-[76px]" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen}>
+                <span className="flex min-w-0 items-center gap-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-navy text-[10px] text-primary-foreground">{initials(member.name)}</span><span className="max-[390px]:hidden truncate text-left"><span className="block max-w-[140px] truncate text-xs font-medium">{member.name}</span><span className="block text-[10px] font-book text-muted-foreground">{levelLabel(member.level)}</span></span></span>
                 <ChevronDown className={cn("size-4 transition-transform", menuOpen && "rotate-180")} />
               </Button>
               {menuOpen && <div className="absolute right-0 top-12 z-40 w-64 rounded-md border border-border bg-card p-2 shadow-xl">
