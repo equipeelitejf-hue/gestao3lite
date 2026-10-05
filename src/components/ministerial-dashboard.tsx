@@ -22,6 +22,7 @@ const TABS: { id: Tab; label: string; short: string; icon: typeof Home }[] = [
   { id: "goals", label: "Metas", short: "Metas", icon: Target },
   { id: "network", label: "Circuito", short: "Circuito", icon: UsersRound },
 ];
+const MOBILE_TABS = TABS.filter((t) => t.id === "overview" || t.id === "entries" || t.id === "network");
 
 export function MinisterialDashboard() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -131,8 +132,8 @@ export function MinisterialDashboard() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid h-20 grid-cols-6 border-t border-border bg-card px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
-        {TABS.map((t) => <button key={t.id} onClick={() => setTab(t.id)} className={cn("flex flex-col items-center justify-center gap-1 text-[10px] font-medium", tab === t.id ? "text-primary" : "text-muted-foreground")}><t.icon className="size-5" />{t.short}</button>)}
+      <nav aria-label="Navegação principal" className="fixed inset-x-0 bottom-0 z-30 grid h-20 grid-cols-3 border-t border-border bg-card px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
+        {MOBILE_TABS.map((t) => <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id ? "page" : undefined} className={cn("flex flex-col items-center justify-center gap-1 text-[10px] font-medium", tab === t.id ? "text-primary" : "text-muted-foreground")}><t.icon className="size-5" />{t.short}</button>)}
       </nav>
 
       {mobileMenu && <div className="fixed inset-0 z-50 lg:hidden"><button className="absolute inset-0 bg-overlay" aria-label="Fechar menu" onClick={() => setMobileMenu(false)} /><div className="relative h-full w-[82%] max-w-xs overflow-y-auto bg-card p-6 shadow-2xl"><div className="mb-8 flex items-center justify-between"><img src={logoBlue.url} alt="3Lite Supernova" className="h-12 w-auto" /><Button size="icon" variant="ghost" onClick={() => setMobileMenu(false)} aria-label="Fechar"><X className="size-5" /></Button></div>{member && <div className="mb-6 flex items-center gap-3"><Avatar name={member.name} strong /><div className="min-w-0"><p className="truncate text-sm font-medium">{member.name}</p><p className="truncate text-[11px] text-muted-foreground">{member.email}</p></div></div>}<div className="space-y-1">{TABS.map((t) => <Button key={t.id} variant={tab === t.id ? "secondary" : "ghost"} className="w-full justify-start" onClick={() => { setTab(t.id); setMobileMenu(false); }}><t.icon className="size-4" />{t.label}</Button>)}</div><Button variant="outline" className="mt-8 w-full" onClick={signOut}><LogOut className="size-4" />Sair</Button></div></div>}
