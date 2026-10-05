@@ -2,10 +2,10 @@ import { Camera, ImageIcon, MapPin, Pencil, Trash2, Wifi, X } from "lucide-react
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
-import { EmptyState } from "@/components/network-panels";
+import { EmptyState, VisitorsField } from "@/components/network-panels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FREQ_LABEL, brl, fetchMeetingPhoto, today, type Actions, type Cell, type CellFreq, type CellMode, type Network } from "@/lib/network";
+import { FREQ_LABEL, brl, fetchMeetingPhoto, today, type Actions, type Cell, type CellFreq, type CellMode, type Network, type VisitorInput } from "@/lib/network";
 import { cn } from "@/lib/utils";
 
 const parseMoney = (s: string) => Number(s.replace(/\./g, "").replace(",", ".")) || 0;
@@ -81,8 +81,9 @@ function CellForm({ memberId, editing, actions, onDone }: { memberId: string; ed
   </form>;
 }
 
-function MeetingForm({ cell, month, actions, onDone }: { cell: Cell; month: string; actions: Actions; onDone: () => void }) {
-  const [f, setF] = useState({ date: today().startsWith(month) ? today() : `${month}-01`, lives: "", visitors: "", offering: "" });
+function MeetingForm({ net, cell, month, actions, onDone }: { net: Network; cell: Cell; month: string; actions: Actions; onDone: () => void }) {
+  const [f, setF] = useState({ date: today().startsWith(month) ? today() : `${month}-01`, lives: "", offering: "" });
+  const [people, setPeople] = useState<VisitorInput[]>([]);
   const [photo, setPhoto] = useState("");
   const [cam, setCam] = useState(false);
   const [error, setError] = useState("");
@@ -95,14 +96,13 @@ function MeetingForm({ cell, month, actions, onDone }: { cell: Cell; month: stri
   }
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const lives = Number(f.lives), visitors = Number(f.visitors || 0), offering = Math.round(parseMoney(f.offering) * 100) / 100;
+    const lives = Number(f.lives), offering = Math.round(parseMoney(f.offering) * 100) / 100;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) return setError("Informe a data");
     if (!Number.isInteger(lives) || lives < 0 || lives > 10000) return setError("Informe o número de vidas");
-    if (!Number.isInteger(visitors) || visitors < 0 || visitors > 10000) return setError("Visitantes deve ser um número inteiro");
     if (offering < 0 || offering > 1_000_000) return setError("Valor de Parceiro de Deus inválido");
     if (!photo) return setError("Tire ou escolha a foto da célula");
     setError("");
-    actions.addMeeting.mutate({ cell_id: cell.id, date: f.date, lives, visitors, offering, photo }, { onSuccess: onDone });
+    actions.addMeeting.mutate({ cell_id: cell.id, member_id: cell.member_id, date: f.date, lives, offering, photo, people }, { onSuccess: onDone });
   }
   return <form onSubmit={submit} className="mt-3 space-y-3 rounded-md bg-secondary p-4">
     {cam && <CameraCapture onPhoto={setPhoto} onClose={() => setCam(false)} />}
@@ -110,8 +110,8 @@ function MeetingForm({ cell, month, actions, onDone }: { cell: Cell; month: stri
       <label className="text-[11px] text-muted-foreground">Data do encontro<Input type="date" value={f.date} onChange={(e) => setF((x) => ({ ...x, date: e.target.value }))} className="mt-1" /></label>
       <label className="text-[11px] text-muted-foreground">Parceiro de Deus gerado (R$)<Input inputMode="decimal" placeholder="0,00" value={f.offering} onChange={(e) => setF((x) => ({ ...x, offering: e.target.value }))} className="mt-1" /></label>
       <label className="text-[11px] text-muted-foreground">Vidas presentes<Input inputMode="numeric" placeholder="0" value={f.lives} onChange={(e) => setF((x) => ({ ...x, lives: e.target.value }))} className="mt-1" /></label>
-      <label className="text-[11px] text-muted-foreground">Visitantes<Input inputMode="numeric" placeholder="0" value={f.visitors} onChange={(e) => setF((x) => ({ ...x, visitors: e.target.value }))} className="mt-1" /></label>
     </div>
+    <VisitorsField net={net} value={people} onChange={setPeople} />
     {photo ? <div className="relative"><img src={photo} alt="Foto da célula" className="max-h-56 w-full rounded-md object-cover" /><Button type="button" size="sm" variant="secondary" className="absolute right-2 top-2" onClick={() => setPhoto("")}>Trocar foto</Button></div>
       : <div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => setCam(true)}><Camera className="size-4" />Tirar foto</Button><Button type="button" variant="outline" onClick={() => gallery.current?.click()}><ImageIcon className="size-4" />Escolher da galeria</Button></div>}
     <input ref={gallery} type="file" accept="image/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
@@ -149,8 +149,8 @@ export function CellsView({ net, memberId, month, actions }: { net: Network; mem
             <Button size="icon" variant="ghost" aria-label="Editar célula" onClick={() => setEditing(c)}><Pencil className="size-4" /></Button>
             <Button size="icon" variant="ghost" aria-label="Remover célula" onClick={() => { if (window.confirm("Remover esta célula e todos os encontros?")) actions.deleteCell.mutate(c.id); }}><Trash2 className="size-4" /></Button>
           </div>
-          {ms.length > 0 && <div className="mt-3 divide-y divide-border border-t border-border">{ms.map((m) => <div key={m.id} className="flex items-start justify-between gap-2 py-2 text-xs"><div><p className="font-medium">{m.date.split("-").reverse().join("/")} · {m.lives} vidas · {m.visitors} visitantes</p><p className="text-muted-foreground">Parceiro de Deus {brl(Number(m.offering))}</p><PhotoButton id={m.id} /></div><Button size="icon" variant="ghost" aria-label="Excluir encontro" onClick={() => { if (window.confirm("Excluir este encontro?")) actions.deleteMeeting.mutate(m.id); }}><Trash2 className="size-4" /></Button></div>)}</div>}
-          {launch === c.id ? <MeetingForm cell={c} month={month} actions={actions} onDone={() => setLaunch(null)} /> : <Button size="sm" variant="outline" className="mt-3" onClick={() => setLaunch(c.id)}>Lançar encontro</Button>}
+          {ms.length > 0 && <div className="mt-3 divide-y divide-border border-t border-border">{ms.map((m) => <div key={m.id} className="flex items-start justify-between gap-2 py-2 text-xs"><div><p className="font-medium">{m.date.split("-").reverse().join("/")} · {m.lives} vidas · {m.visitors} visitantes</p>{net.visitsOf({ meeting_id: m.id }).length > 0 && <p className="text-muted-foreground">{net.visitsOf({ meeting_id: m.id }).map((v) => v.name).join(", ")}</p>}<p className="text-muted-foreground">Parceiro de Deus {brl(Number(m.offering))}</p><PhotoButton id={m.id} /></div><Button size="icon" variant="ghost" aria-label="Excluir encontro" onClick={() => { if (window.confirm("Excluir este encontro?")) actions.deleteMeeting.mutate(m.id); }}><Trash2 className="size-4" /></Button></div>)}</div>}
+          {launch === c.id ? <MeetingForm net={net} cell={c} month={month} actions={actions} onDone={() => setLaunch(null)} /> : <Button size="sm" variant="outline" className="mt-3" onClick={() => setLaunch(c.id)}>Lançar encontro</Button>}
         </div>; })}
       </div>
     </section>

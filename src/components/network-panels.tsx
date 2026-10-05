@@ -1,11 +1,11 @@
-import { ChevronRight, Heart, HeartOff, Pencil, Search, Trash2, UserPlus } from "lucide-react";
+import { ChevronRight, Heart, HeartOff, Plus, X, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { KIND_LABEL, MEMBRESIA_WEIGHT, brl, initials, num, pct, today, type Actions, type Entry, type EntryKind, type Goals, type Member, type Network, type Totals } from "@/lib/network";
+import { KIND_LABEL, MEMBRESIA_WEIGHT, brl, initials, num, pct, today, type Actions, type Entry, type EntryKind, type Goals, type Member, type Network, type Totals, type VisitorInput, visitorKey } from "@/lib/network";
 import { cn } from "@/lib/utils";
 
 export const levelLabel = (level: number) => (level === 0 ? "Liderança Principal" : level === 1 ? "Discípulo direto" : `Rede · ${level}º nível`);
@@ -97,7 +97,7 @@ function StatsBlock({ title, t, goal }: { title: string; t: Totals; goal: Goals 
     <GoalLine label="Parceiro de Deus" value={brl(t.oferta)} goal={brl(goal.oferta)} p={pct(t.oferta, goal.oferta)} />
     <GoalLine label="Membresia" value={num(t.membresia)} goal={num(goal.membresia)} p={pct(t.membresia, goal.membresia)} />
     <GoalLine label="Células ativas" value={`${t.activeCells} de ${t.cells}`} goal={String(goal.cells)} p={pct(t.activeCells, goal.cells)} />
-    <div className="mt-4 grid grid-cols-4 gap-2 text-center">{(["terca", "arena", "familia"] as const).map((k) => <div key={k} className="rounded-md bg-secondary p-2"><p className="text-sm font-bold">{t[k]}</p><p className="text-[9px] leading-tight text-muted-foreground">{KIND_LABEL[k]}</p></div>)}<div className="rounded-md bg-primary-soft p-2"><p className="text-sm font-bold text-primary">{t.visitantes + t.cellVisitors}</p><p className="text-[9px] text-muted-foreground">Visitantes</p></div></div>
+    <div className="mt-4 grid grid-cols-4 gap-2 text-center">{(["terca", "arena", "familia"] as const).map((k) => <div key={k} className="rounded-md bg-secondary p-2"><p className="text-sm font-bold">{t[k]}</p><p className="text-[9px] leading-tight text-muted-foreground">{KIND_LABEL[k]}</p></div>)}<div className="rounded-md bg-primary-soft p-2"><p className="text-sm font-bold text-primary">{t.uniqueVisitors}</p><p className="text-[9px] leading-tight text-muted-foreground">Visitantes únicos</p></div></div>
   </div>;
 }
 
@@ -162,26 +162,55 @@ const entrySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data"),
   kind: z.enum(["oferta", "terca", "arena", "familia"]),
   value: z.coerce.number({ message: "Informe um número" }).positive("Informe um valor maior que zero").max(1_000_000, "Valor muito alto"),
-  visitors: z.coerce.number().int("Visitantes deve ser inteiro").min(0).max(100_000),
   note: z.string().trim().max(200, "Máximo de 200 caracteres"),
 });
 
-export function EntryForm({ memberId, month, editing, actions, onDone }: { memberId: string; month: string; editing?: Entry | null; actions: Actions; onDone?: () => void }) {
+// ---------------- Visitantes nominais ----------------
+const visitorSchema = z.object({ name: z.string().trim().min(2, "Informe o nome do visitante").max(100, "Nome muito longo"), phone: z.string().trim().max(30, "Telefone muito longo").regex(/^[\d\s()+-]*$/, "Telefone inválido") });
+
+export function VisitorsField({ net, value, onChange }: { net: Network; value: VisitorInput[]; onChange: (v: VisitorInput[]) => void }) {
+  const [d, setD] = useState({ name: "", phone: "" });
+  const [error, setError] = useState("");
+  const known = net.knownVisitors();
+  function add() {
+    const r = visitorSchema.safeParse(d);
+    if (!r.success) { setError(r.error.issues[0]?.message ?? "Dados inválidos"); return; }
+    const k = known.find((x) => x.name.toLowerCase() === r.data.name.toLowerCase());
+    const v = { name: r.data.name, phone: r.data.phone || k?.phone || "" };
+    if (value.some((x) => visitorKey(x) === visitorKey(v))) { setError("Este visitante já está na lista"); return; }
+    setError(""); onChange([...value, v]); setD({ name: "", phone: "" });
+  }
+  return <div className="rounded-md border border-border p-3">
+    <p className="text-[11px] font-medium text-muted-foreground">Visitantes ({value.length})</p>
+    {value.length > 0 && <ul className="mt-2 space-y-1">{value.map((v, i) => <li key={i} className="flex items-center gap-2 rounded bg-secondary px-2 py-1 text-xs"><span className="flex-1 truncate">{v.name}{v.phone && <span className="text-muted-foreground"> · {v.phone}</span>}</span><button type="button" aria-label="Remover visitante" onClick={() => onChange(value.filter((_, j) => j !== i))}><X className="size-3.5" /></button></li>)}</ul>}
+    <div className="mt-2 grid grid-cols-[1fr_0.8fr_auto] gap-2">
+      <Input list="known-visitors" placeholder="Nome do visitante" value={d.name} maxLength={100} onChange={(e) => { const name = e.target.value; const k = known.find((x) => x.name === name); setD((x) => ({ name, phone: k?.phone ?? x.phone })); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+      <Input inputMode="tel" placeholder="Telefone (opcional)" value={d.phone} maxLength={30} onChange={(e) => setD((x) => ({ ...x, phone: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+      <Button type="button" size="icon" variant="outline" aria-label="Adicionar visitante" onClick={add}><Plus className="size-4" /></Button>
+    </div>
+    <datalist id="known-visitors">{known.map((k) => <option key={visitorKey(k)} value={k.name} />)}</datalist>
+    {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+    <p className="mt-2 text-[10px] text-muted-foreground">A mesma pessoa em célula e cultos conta como 1 visitante no mês.</p>
+  </div>;
+}
+
+export function EntryForm({ net, memberId, month, editing, actions, onDone }: { net: Network; memberId: string; month: string; editing?: Entry | null; actions: Actions; onDone?: () => void }) {
+  const [people, setPeople] = useState<VisitorInput[]>(() => (editing ? net.visitsOf({ entry_id: editing.id }).map((v) => ({ name: v.name, phone: v.phone })) : []));
   const initialDate = editing?.date ?? (today().startsWith(month) ? today() : `${month}-01`);
-  const [form, setForm] = useState({ date: initialDate, kind: (editing?.kind ?? "oferta") as EntryKind, value: editing ? String(editing.value) : "", visitors: editing ? String(editing.visitors ?? 0) : "", note: editing?.note ?? "" });
+  const [form, setForm] = useState({ date: initialDate, kind: (editing?.kind ?? "oferta") as EntryKind, value: editing ? String(editing.value) : "", note: editing?.note ?? "" });
   const [error, setError] = useState("");
   const isMoney = form.kind === "oferta";
   const busy = actions.addEntry.isPending || actions.updateEntry.isPending;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const r = entrySchema.safeParse({ ...form, value: form.value.replace(/\./g, "").replace(",", "."), visitors: isMoney ? 0 : form.visitors || 0 });
+    const r = entrySchema.safeParse({ ...form, value: form.value.replace(/\./g, "").replace(",", ".") });
     if (!r.success) { setError(r.error.issues[0]?.message ?? "Dados inválidos"); return; }
     if (!isMoney && !Number.isInteger(r.data.value)) { setError("A arregimentação deve ser um número inteiro de pessoas"); return; }
     setError("");
-    const after = { onSuccess: () => { setForm((f) => ({ ...f, value: "", visitors: "", note: "" })); onDone?.(); } };
-    if (editing) actions.updateEntry.mutate({ id: editing.id, ...r.data }, after);
-    else actions.addEntry.mutate({ member_id: memberId, ...r.data }, after);
+    const after = { onSuccess: () => { setForm((f) => ({ ...f, value: "", note: "" })); setPeople([]); onDone?.(); } };
+    if (editing) actions.updateEntry.mutate({ id: editing.id, member_id: editing.member_id, ...r.data, people: isMoney ? [] : people }, after);
+    else actions.addEntry.mutate({ member_id: memberId, ...r.data, people: isMoney ? [] : people }, after);
   }
 
   return <form onSubmit={submit} className="space-y-3">
@@ -190,7 +219,7 @@ export function EntryForm({ memberId, month, editing, actions, onDone }: { membe
       <label className="text-[11px] text-muted-foreground">Data<Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="mt-1" /></label>
       <label className="text-[11px] text-muted-foreground">{isMoney ? "Valor da oferta (R$)" : "Pessoas no culto"}<Input inputMode="decimal" value={form.value} onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))} placeholder={isMoney ? "0,00" : "0"} className="mt-1" /></label>
     </div>
-    {!isMoney && <label className="block text-[11px] text-muted-foreground">Visitantes no culto<Input inputMode="numeric" value={form.visitors} onChange={(e) => setForm((f) => ({ ...f, visitors: e.target.value }))} placeholder="0" className="mt-1" /></label>}
+    {!isMoney && <VisitorsField net={net} value={people} onChange={setPeople} />}
     <Input value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} placeholder="Observação (opcional)" maxLength={200} />
     {!isMoney && <p className="text-[11px] text-muted-foreground">Na membresia, este culto conta {Math.round(MEMBRESIA_WEIGHT[form.kind as "terca"] * 100)}% do número informado.</p>}
     {error && <p className="text-xs text-destructive">{error}</p>}
