@@ -229,7 +229,7 @@ function EntriesView({ net, me, month, actions }: { net: Network; me: Member; mo
   return <div>
     <PageHeading eyebrow="Lançamentos" title="Registrar resultados" description="Cada lançamento atualiza na hora os totais de toda a rede acima de você." />
     <div className="mt-8 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title={editing ? "Editar lançamento" : "Novo lançamento"} subtitle="Oferta Parceiro de Deus ou arregimentação por culto" action={editing ? "Cancelar" : undefined} onAction={() => setEditing(null)} /><div className="mt-5"><EntryForm key={editing?.id ?? `new-${month}`} memberId={me.id} month={month} editing={editing} actions={actions} onDone={() => setEditing(null)} /></div></section>
+      <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title={editing ? "Editar lançamento" : "Novo lançamento"} subtitle="Oferta Parceiro de Deus ou arregimentação por culto" action={editing ? "Cancelar" : undefined} onAction={() => setEditing(null)} /><div className="mt-5"><EntryForm net={net} key={editing?.id ?? `new-${month}`} memberId={me.id} month={month} editing={editing} actions={actions} onDone={() => setEditing(null)} /></div></section>
       <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7"><SectionHeading title="Meu histórico" subtitle={monthLabel(month)} /><div className="mt-5"><EntryList net={net} memberId={me.id} actions={actions} onEdit={setEditing} /></div></section>
     </div>
   </div>;
