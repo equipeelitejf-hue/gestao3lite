@@ -74,7 +74,7 @@ function AuthPage() {
   }
 
   const titles: Record<Mode, [string, string]> = {
-    signin: ["Entrar", "Acesse o painel da sua rede ministerial."],
+    signin: ["Entrar", "Acesse o painel da seu circuito ministerial."],
     signup: ["Criar conta", "Use o e-mail que o seu líder cadastrou para entrar direto na sua equipe."],
     forgot: ["Recuperar senha", "Enviaremos um link para você criar uma nova senha."],
   };
