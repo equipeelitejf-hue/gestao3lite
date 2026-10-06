@@ -29,9 +29,14 @@ export function ReportExportMenu({ net, rootId, month }: { net: Network; rootId:
       if (kind === "individual") {
         const member = disciples.find((m) => m.id === selected);
         if (!member) throw new Error("Escolha um discípulo para exportar.");
-        const totals = net.ownTotals(member.id), goal = net.goalOf(member.id).oferta;
+        const totals = net.ownTotals(member.id), goals = net.goalOf(member.id);
         const name = net.unitName(member.id);
-        const pages = renderPages(month, [{ title: "Parceiro de Deus", rows: [{ name, result: brl(totals.oferta), goal: brl(goal), progress: pct(totals.oferta, goal) }] }], name);
+        const individualSections: Section[] = [
+          { title: "Membresia", rows: [{ name, result: num(totals.membresia), goal: num(goals.membresia), progress: pct(totals.membresia, goals.membresia) }] },
+          { title: "Células Ativas", rows: [{ name, result: num(totals.activeCells), goal: num(goals.cells), progress: pct(totals.activeCells, goals.cells) }] },
+          { title: "Parceiro de Deus", rows: [{ name, result: brl(totals.oferta), goal: brl(goals.oferta), progress: pct(totals.oferta, goals.oferta) }] },
+        ];
+        const pages = renderPages(month, individualSections, name);
         download(await makePdf(pages), `relatorio-${slug(name)}-${month}.pdf`);
       } else if (kind === "partner") {
         const section = sections[2]!;
@@ -54,7 +59,7 @@ export function ReportExportMenu({ net, rootId, month }: { net: Network; rootId:
           <Choice icon={<FileText className="size-5" />} title="Relatório geral" detail="PDF com Membresia, Células Ativas e Parceiro de Deus." onClick={() => void exportFile("general")} disabled={busy || !disciples.length} />
           <section className="rounded-lg border border-border p-4">
             <div className="flex items-start gap-3"><FileText className="mt-0.5 size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1">
-              <p className="font-medium">Relatório individual de discípulo</p><p className="mt-1 text-sm text-muted-foreground">PDF somente com resultado e meta de Parceiro de Deus.</p>
+              <p className="font-medium">Relatório individual de discípulo</p><p className="mt-1 text-sm text-muted-foreground">PDF com Membresia, Células Ativas e Parceiro de Deus, com resultado e meta de cada área.</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <select aria-label="Escolher discípulo" value={selected} onChange={(event) => setSelected(event.target.value)} className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">Escolha um discípulo</option>{disciples.map((m) => <option key={m.id} value={m.id}>{net.unitName(m.id)}</option>)}
