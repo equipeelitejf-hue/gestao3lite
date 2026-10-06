@@ -31,11 +31,16 @@ export function ReportExportMenu({ net, rootId, month }: { net: Network; rootId:
         if (!member) throw new Error("Escolha um discípulo para exportar.");
         const totals = net.ownTotals(member.id), goals = net.goalOf(member.id);
         const name = net.unitName(member.id);
-        const individualPage = drawPage(month, { title: "Resultado individual", rows: [
+        const section: Section = { title: name, rows: [
           { name: "Membresia", result: num(totals.membresia), goal: num(goals.membresia), progress: pct(totals.membresia, goals.membresia) },
-          { name: "Células Ativas", result: num(totals.activeCells), goal: num(goals.cells), progress: pct(totals.activeCells, goals.cells) },
+          { name: "Células Ativas", result: `${totals.activeCells}/${totals.cells}`, goal: num(goals.cells), progress: pct(totals.activeCells, goals.cells) },
           { name: "Parceiro de Deus", result: brl(totals.oferta), goal: brl(goals.oferta), progress: pct(totals.oferta, goals.oferta) },
-        ] }, name);
+          { name: "Terça da Fé", result: num(totals.terca), goal: "—", progress: -1 },
+          { name: "Arena", result: num(totals.arena), goal: "—", progress: -1 },
+          { name: "Culto da Família", result: num(totals.familia), goal: "—", progress: -1 },
+          { name: "Visitantes únicos", result: num(totals.uniqueVisitors), goal: "—", progress: -1 },
+        ] };
+        const individualPage = drawPage(month, section, section.rows, "Resultado individual do ciclo", false, undefined, "INDICADOR");
         download(await makePdf([individualPage]), `relatorio-${slug(name)}-${month}.pdf`);
       } else if (kind === "partner") {
         const section = sections[2]!;
