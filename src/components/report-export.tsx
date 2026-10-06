@@ -3,6 +3,7 @@ import { Download, FileImage, FileText, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { brl, monthLabel, num, pct, type Network } from "@/lib/network";
+import { supabase } from "@/integrations/supabase/client";
 
 type Row = { name: string; result: string; goal: string; progress: number };
 type Section = { title: string; rows: Row[] };
@@ -188,13 +189,21 @@ function partnerRows(net: Network, rootId: string): Row[] {
 export function PartnerShareWatcher({ net, rootId, month }: { net: Network; rootId: string; month: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [armed, setArmed] = useState(false);
+  const [teamTotal, setTotal] = useState<number | null>(null);
   const armedNet = useRef<Network | null>(null);
   useEffect(() => { const fn = () => { armedNet.current = net; setArmed(true); }; shareListeners.add(fn); return () => { shareListeners.delete(fn); }; }, [net]);
   useEffect(() => {
     if (!armed || !pendingShare) return;
     const run = async () => {
       pendingShare = false; setArmed(false);
-      const rows = partnerRows(net, rootId), total = net.treeTotals(rootId).oferta;
+      let rows = partnerRows(net, rootId), total = net.treeTotals(rootId).oferta;
+      const { data } = await supabase.rpc("team_partner_summary", { _month: month });
+      if (data?.length) {
+        const list = data.filter((r) => !r.is_total).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+        rows = list.map((r) => ({ name: r.name, result: brl(Number(r.result)), goal: brl(Number(r.goal)), progress: pct(Number(r.result), Number(r.goal)) }));
+        total = Number(data.find((r) => r.is_total)?.result ?? total);
+      }
+      setTotal(total);
       const blob = await canvasBlob(drawPage(month, { title: "Parceiro de Deus", rows }, rows, `Total ${brl(total)}`, true), "image/png");
       const f = new File([blob], `parceiro-de-deus-${month}.png`, { type: "image/png" });
       download(blob, f.name); setFile(f);
@@ -204,7 +213,7 @@ export function PartnerShareWatcher({ net, rootId, month }: { net: Network; root
     return () => window.clearTimeout(timer);
   }, [armed, net, rootId, month]);
 
-  const caption = `Parceiro de Deus atualizado · ${monthLabel(month)} · Total ${brl(net.treeTotals(rootId).oferta)}`;
+  const caption = `Parceiro de Deus atualizado · ${monthLabel(month)} · Total ${brl(teamTotal ?? net.treeTotals(rootId).oferta)}`;
   async function share() {
     if (!file) return;
     if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], text: caption }); } catch { /* cancelado */ } return; }
