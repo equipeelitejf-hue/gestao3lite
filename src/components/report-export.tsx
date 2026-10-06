@@ -31,13 +31,12 @@ export function ReportExportMenu({ net, rootId, month }: { net: Network; rootId:
         if (!member) throw new Error("Escolha um discípulo para exportar.");
         const totals = net.ownTotals(member.id), goals = net.goalOf(member.id);
         const name = net.unitName(member.id);
-        const individualSections: Section[] = [
-          { title: "Membresia", rows: [{ name, result: num(totals.membresia), goal: num(goals.membresia), progress: pct(totals.membresia, goals.membresia) }] },
-          { title: "Células Ativas", rows: [{ name, result: num(totals.activeCells), goal: num(goals.cells), progress: pct(totals.activeCells, goals.cells) }] },
-          { title: "Parceiro de Deus", rows: [{ name, result: brl(totals.oferta), goal: brl(goals.oferta), progress: pct(totals.oferta, goals.oferta) }] },
-        ];
-        const pages = renderPages(month, individualSections, name);
-        download(await makePdf(pages), `relatorio-${slug(name)}-${month}.pdf`);
+        const individualPage = drawPage(month, { title: "Resultado individual", rows: [
+          { name: "Membresia", result: num(totals.membresia), goal: num(goals.membresia), progress: pct(totals.membresia, goals.membresia) },
+          { name: "Células Ativas", result: num(totals.activeCells), goal: num(goals.cells), progress: pct(totals.activeCells, goals.cells) },
+          { name: "Parceiro de Deus", result: brl(totals.oferta), goal: brl(goals.oferta), progress: pct(totals.oferta, goals.oferta) },
+        ] }, name);
+        download(await makePdf([individualPage]), `relatorio-${slug(name)}-${month}.pdf`);
       } else if (kind === "partner") {
         const section = sections[2]!;
         download(await canvasBlob(drawPage(month, section, section.rows, "Parceiro de Deus", true), "image/png"), `parceiro-de-deus-${month}.png`);
