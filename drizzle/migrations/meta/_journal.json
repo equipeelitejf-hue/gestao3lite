@@ -36,6 +36,13 @@
       "when": 1791207112105,
       "tag": "0004_visits",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791301991594,
+      "tag": "0005_team_partner_summary",
+      "breakpoints": true
     }
   ]
 }
