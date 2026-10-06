@@ -99,7 +99,7 @@ function renderPages(month: string, sections: Section[], subtitle?: string) {
   return pages;
 }
 
-function drawPage(month: string, section: Section, rows: Row[], subtitle?: string, tall = false, continuation?: string) {
+function drawPage(month: string, section: Section, rows: Row[], subtitle?: string, tall = false, continuation?: string, firstColumn = "DISCÍPULO") {
   const width = 1080, rowHeight = tall ? 82 : 74;
   const height = tall ? Math.max(1100, 700 + rows.length * rowHeight) : 1920;
   const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
@@ -116,14 +116,14 @@ function drawPage(month: string, section: Section, rows: Row[], subtitle?: strin
   ctx.fillStyle = navy; ctx.font = "700 46px Arial, sans-serif"; ctx.fillText(section.title, 144, top + 84, 780);
   if (continuation) { ctx.textAlign = "right"; ctx.fillStyle = "#71808a"; ctx.font = "400 22px Arial, sans-serif"; ctx.fillText(continuation, 930, top + 82); ctx.textAlign = "left"; }
   const y0 = top + 136;
-  ctx.fillStyle = "#73828c"; ctx.font = "600 20px Arial, sans-serif"; ctx.fillText("DISCÍPULO", 144, y0); ctx.fillText("RESULTADO", 600, y0); ctx.fillText("META DO CICLO", 790, y0);
+  ctx.fillStyle = "#73828c"; ctx.font = "600 20px Arial, sans-serif"; ctx.fillText(firstColumn, 144, y0); ctx.fillText("RESULTADO", 600, y0); ctx.fillText("META DO CICLO", 790, y0);
   ctx.fillStyle = "#e5ebef"; ctx.fillRect(144, y0 + 20, 790, 2);
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i]!;
     const y = y0 + 78 + i * rowHeight;
     ctx.fillStyle = orange; ctx.font = "700 28px Arial, sans-serif"; ctx.fillText(row.name, 144, y, 420);
     ctx.fillStyle = navy; ctx.font = "600 23px Arial, sans-serif"; ctx.fillText(row.result, 600, y, 175); ctx.fillText(row.goal, 790, y, 140);
-    ctx.fillStyle = "#6f7e88"; ctx.font = "400 18px Arial, sans-serif"; ctx.fillText(`${row.progress}% da meta`, 144, y + 28);
+    ctx.fillStyle = "#6f7e88"; ctx.font = "400 18px Arial, sans-serif"; if (row.progress >= 0) ctx.fillText(`${row.progress}% da meta`, 144, y + 28);
     ctx.fillStyle = "#e5ebef"; ctx.fillRect(144, y + 44, 790, 1);
   }
   if (!rows.length) { ctx.fillStyle = "#6f7e88"; ctx.font = "400 24px Arial, sans-serif"; ctx.fillText("Nenhum discípulo cadastrado neste circuito.", 144, y0 + 90, 760); }
