@@ -63,7 +63,7 @@ export function monthOptions() {
 }
 export const formatLocalDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 export const parseLocalDate = (value: string) => {
-  const [year, month, day] = value.split("-").map(Number);
+  const [year = 1970, month = 1, day = 1] = value.split("-").map(Number);
   return new Date(year, month - 1, day, 12);
 };
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -77,7 +77,7 @@ export function isEntryDateValid(date: string, kind: EntryKind) {
   return weekday === undefined || parsed.getDay() === weekday;
 }
 export function defaultEntryDate(kind: EntryKind, month: string, reference = new Date()) {
-  const [year, monthNumber] = month.split("-").map(Number);
+  const [year = 1970, monthNumber = 1] = month.split("-").map(Number);
   const first = new Date(year, monthNumber - 1, 1, 12);
   const last = new Date(year, monthNumber, 0, 12);
   const referenceMonth = `${reference.getFullYear()}-${String(reference.getMonth() + 1).padStart(2, "0")}`;
