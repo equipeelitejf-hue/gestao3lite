@@ -105,7 +105,7 @@ export function MinisterialDashboard() {
           <div className="mt-auto rounded-md bg-navy p-4 text-primary-foreground"><img src={symbolWhite.url} alt="" className="mb-4 h-8 w-auto opacity-90" /><p className="text-xs font-medium">{monthLabel(month)}</p><p className="mt-1 text-[11px] font-book text-primary-foreground/60">Metas e resultados do mês selecionado.</p></div>
         </aside>
         <main className="min-w-0 flex-1 px-4 pb-28 pt-7 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">
-          <PartnerShareWatcher net={net} rootId={member.id} month={month} />
+          {net && member && <PartnerShareWatcher net={net} rootId={member.id} month={month} />}
           <MonthSelect value={month} options={months} onChange={setMonth} className="mb-5 h-10 w-full sm:hidden" />
           {!member || !net ? (netQ.isError ? <EmptyState title="Não foi possível carregar o circuito" text="Tente novamente em instantes." action={<Button onClick={() => netQ.refetch()}>Tentar novamente</Button>} /> : <LoadingBlock />) : <div className="animate-fade-in min-w-0 w-full">
             {tab === "overview" && (isRoot ? <LeaderView net={net} me={member} month={month} onSelect={setSelected} onTab={setTab} /> : <DiscipleView net={net} me={member} onTab={setTab} />)}

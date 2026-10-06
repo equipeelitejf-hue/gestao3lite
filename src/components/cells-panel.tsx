@@ -66,7 +66,7 @@ function CellForm({ memberId, editing, actions, onDone }: { memberId: string; ed
     if (r.data.mode === "presencial" && (!r.data.neighborhood || !r.data.address)) { setError("Informe bairro e endereço da célula presencial"); return; }
     const data = r.data.mode === "online" ? { ...r.data, neighborhood: "", address: "" } : r.data;
     setError("");
-    actions.saveCell.mutate({ ...data, member_id: editing?.member_id ?? memberId, ...(editing ? { id: editing.id } : {}) }, { onSuccess: () => { if (offering > 0) requestPartnerShare(); onDone?.(); } });
+    actions.saveCell.mutate({ ...data, member_id: editing?.member_id ?? memberId, ...(editing ? { id: editing.id } : {}) }, { onSuccess: onDone });
   }
   const opt = (on: boolean) => cn("min-w-0 rounded-md border px-2 py-2.5 text-center text-xs leading-tight font-medium", on ? "border-primary bg-primary-soft text-primary" : "border-border hover:bg-accent");
   return <form onSubmit={submit} className="space-y-3">
