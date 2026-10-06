@@ -1,4 +1,5 @@
 import { Camera, ImageIcon, MapPin, Pencil, Trash2, Wifi, X } from "lucide-react";
+import { requestPartnerShare } from "@/components/report-export";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -65,7 +66,7 @@ function CellForm({ memberId, editing, actions, onDone }: { memberId: string; ed
     if (r.data.mode === "presencial" && (!r.data.neighborhood || !r.data.address)) { setError("Informe bairro e endereço da célula presencial"); return; }
     const data = r.data.mode === "online" ? { ...r.data, neighborhood: "", address: "" } : r.data;
     setError("");
-    actions.saveCell.mutate({ ...data, member_id: editing?.member_id ?? memberId, ...(editing ? { id: editing.id } : {}) }, { onSuccess: onDone });
+    actions.saveCell.mutate({ ...data, member_id: editing?.member_id ?? memberId, ...(editing ? { id: editing.id } : {}) }, { onSuccess: () => { if (offering > 0) requestPartnerShare(); onDone?.(); } });
   }
   const opt = (on: boolean) => cn("min-w-0 rounded-md border px-2 py-2.5 text-center text-xs leading-tight font-medium", on ? "border-primary bg-primary-soft text-primary" : "border-border hover:bg-accent");
   return <form onSubmit={submit} className="space-y-3">
@@ -102,7 +103,7 @@ function MeetingForm({ net, cell, month, actions, onDone }: { net: Network; cell
     if (offering < 0 || offering > 1_000_000) return setError("Valor de Parceiro de Deus inválido");
     if (!photo) return setError("Tire ou escolha a foto da célula");
     setError("");
-    actions.addMeeting.mutate({ cell_id: cell.id, member_id: cell.member_id, date: f.date, lives, offering, photo, people }, { onSuccess: onDone });
+    actions.addMeeting.mutate({ cell_id: cell.id, member_id: cell.member_id, date: f.date, lives, offering, photo, people }, { onSuccess: () => { if (offering > 0) requestPartnerShare(); onDone?.(); } });
   }
   return <form onSubmit={submit} className="mt-3 space-y-3 rounded-md bg-secondary p-4">
     {cam && <CameraCapture onPhoto={setPhoto} onClose={() => setCam(false)} />}
