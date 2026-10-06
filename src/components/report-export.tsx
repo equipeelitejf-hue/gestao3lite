@@ -86,7 +86,10 @@ function renderPages(month: string, sections: Section[], subtitle?: string) {
   const perPage = 14;
   for (const section of sections) {
     const batches = section.rows.length ? Array.from({ length: Math.ceil(section.rows.length / perPage) }, (_, i) => section.rows.slice(i * perPage, (i + 1) * perPage)) : [[]];
-    batches.forEach((rows, i) => pages.push(drawPage(month, section, rows, subtitle, false, batches.length > 1 ? `Continuação ${i + 1}` : undefined)));
+    for (let i = 0; i < batches.length; i += 1) {
+      const batch = batches[i] ?? [];
+      pages.push(drawPage(month, section, batch, subtitle, false, batches.length > 1 ? `Continuação ${i + 1}` : undefined));
+    }
   }
   return pages;
 }
@@ -110,13 +113,14 @@ function drawPage(month: string, section: Section, rows: Row[], subtitle?: strin
   const y0 = top + 136;
   ctx.fillStyle = "#73828c"; ctx.font = "600 20px Arial, sans-serif"; ctx.fillText("DISCÍPULO", 144, y0); ctx.fillText("RESULTADO", 600, y0); ctx.fillText("META DO CICLO", 790, y0);
   ctx.fillStyle = "#e5ebef"; ctx.fillRect(144, y0 + 20, 790, 2);
-  rows.forEach((row, i) => {
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i]!;
     const y = y0 + 78 + i * rowHeight;
     ctx.fillStyle = orange; ctx.font = "700 28px Arial, sans-serif"; ctx.fillText(row.name, 144, y, 420);
     ctx.fillStyle = navy; ctx.font = "600 23px Arial, sans-serif"; ctx.fillText(row.result, 600, y, 175); ctx.fillText(row.goal, 790, y, 140);
     ctx.fillStyle = "#6f7e88"; ctx.font = "400 18px Arial, sans-serif"; ctx.fillText(`${row.progress}% da meta`, 144, y + 28);
     ctx.fillStyle = "#e5ebef"; ctx.fillRect(144, y + 44, 790, 1);
-  });
+  }
   if (!rows.length) { ctx.fillStyle = "#6f7e88"; ctx.font = "400 24px Arial, sans-serif"; ctx.fillText("Nenhum discípulo cadastrado neste circuito.", 144, y0 + 90, 760); }
   return canvas;
 }
@@ -147,7 +151,13 @@ async function makePdf(canvases: HTMLCanvasElement[]) {
     objects.push(join([encode.encode(`<< /Length ${command.length} >>\nstream\n`), command, encode.encode("\nendstream")]));
   }
   const chunks: Uint8Array[] = [encode.encode("%PDF-1.4\n")], offsets = [0]; let offset = chunks[0]!.length;
-  objects.forEach((object, i) => { offsets.push(offset); const item = join([encode.encode(`${i + 1} 0 obj\n`), object, encode.encode("\nendobj\n")]); chunks.push(item); offset += item.length; });
+  for (let i = 0; i < objects.length; i += 1) {
+    const object = objects[i]!;
+    offsets.push(offset);
+    const item = join([encode.encode(`${i + 1} 0 obj\n`), object, encode.encode("\nendobj\n")]);
+    chunks.push(item);
+    offset += item.length;
+  }
   const xref = [`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`, ...offsets.slice(1).map((n) => `${String(n).padStart(10, "0")} 00000 n \n`), `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF`].join("");
   chunks.push(encode.encode(xref)); return new Blob([join(chunks)], { type: "application/pdf" });
 }
