@@ -343,6 +343,15 @@ export type Database = {
       link_couple: { Args: { _a: string; _b: string }; Returns: undefined }
       my_leader_id: { Args: never; Returns: string }
       my_member_id: { Args: never; Returns: string }
+      team_partner_summary: {
+        Args: { _month: string }
+        Returns: {
+          goal: number
+          is_total: boolean
+          name: string
+          result: number
+        }[]
+      }
       unlink_couple: { Args: { _a: string }; Returns: undefined }
     }
     Enums: {
