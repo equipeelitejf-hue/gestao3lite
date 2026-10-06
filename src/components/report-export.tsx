@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Download, FileImage, FileText } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, FileImage, FileText, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { brl, monthLabel, num, pct, type Network } from "@/lib/network";
@@ -171,3 +171,52 @@ function join(parts: Uint8Array[]) {
   for (const part of parts) { out.set(part, offset); offset += part.length; } return out;
 }
 
+
+// ---------- Parceiro de Deus automático após lançamentos ----------
+let pendingShare = false;
+const shareListeners = new Set<() => void>();
+/** Chamar após salvar um lançamento com Parceiro de Deus; o PNG é gerado quando os dados atualizarem. */
+export function requestPartnerShare() { pendingShare = true; shareListeners.forEach((fn) => fn()); }
+
+function partnerRows(net: Network, rootId: string): Row[] {
+  const units = net.members.filter((m) => m.id !== rootId && net.inTree(rootId, m.id) && net.unitKey(m.id) === m.id)
+    .sort((a, b) => net.unitName(a.id).localeCompare(net.unitName(b.id), "pt-BR"));
+  const list = units.length ? units : net.members.filter((m) => m.id === rootId);
+  return list.map((m) => { const t = net.ownTotals(m.id), g = net.goalOf(m.id).oferta; return { name: net.unitName(m.id), result: brl(t.oferta), goal: brl(g), progress: pct(t.oferta, g) }; });
+}
+
+export function PartnerShareWatcher({ net, rootId, month }: { net: Network; rootId: string; month: string }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [armed, setArmed] = useState(false);
+  const armedNet = useRef<Network | null>(null);
+  useEffect(() => { const fn = () => { armedNet.current = net; setArmed(true); }; shareListeners.add(fn); return () => { shareListeners.delete(fn); }; }, [net]);
+  useEffect(() => {
+    if (!armed || !pendingShare) return;
+    const run = async () => {
+      pendingShare = false; setArmed(false);
+      const rows = partnerRows(net, rootId), total = net.treeTotals(rootId).oferta;
+      const blob = await canvasBlob(drawPage(month, { title: "Parceiro de Deus", rows }, rows, `Total ${brl(total)}`, true), "image/png");
+      const f = new File([blob], `parceiro-de-deus-${month}.png`, { type: "image/png" });
+      download(blob, f.name); setFile(f);
+    };
+    if (armedNet.current !== net) { void run(); return; }
+    const timer = window.setTimeout(() => void run(), 3000);
+    return () => window.clearTimeout(timer);
+  }, [armed, net, rootId, month]);
+
+  const caption = `Parceiro de Deus atualizado · ${monthLabel(month)} · Total ${brl(net.treeTotals(rootId).oferta)}`;
+  async function share() {
+    if (!file) return;
+    if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], text: caption }); } catch { /* cancelado */ } return; }
+    window.open(`https://wa.me/?text=${encodeURIComponent(caption)}`, "_blank", "noopener");
+  }
+  return <Dialog open={!!file} onOpenChange={(o) => { if (!o) setFile(null); }}>
+    <DialogContent className="sm:max-w-sm">
+      <DialogHeader><DialogTitle>Parceiro de Deus atualizado</DialogTitle><DialogDescription>A imagem com o resultado da equipe foi baixada no seu aparelho.</DialogDescription></DialogHeader>
+      <div className="grid gap-2 pt-2">
+        <Button onClick={() => void share()}><Share2 className="size-4" />Compartilhar no WhatsApp</Button>
+        <Button variant="outline" onClick={() => file && download(file, file.name)}><Download className="size-4" />Baixar novamente</Button>
+      </div>
+    </DialogContent>
+  </Dialog>;
+}

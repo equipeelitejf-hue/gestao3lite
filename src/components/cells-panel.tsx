@@ -1,4 +1,5 @@
 import { Camera, ImageIcon, MapPin, Pencil, Trash2, Wifi, X } from "lucide-react";
+import { requestPartnerShare } from "@/components/report-export";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -102,7 +103,7 @@ function MeetingForm({ net, cell, month, actions, onDone }: { net: Network; cell
     if (offering < 0 || offering > 1_000_000) return setError("Valor de Parceiro de Deus inválido");
     if (!photo) return setError("Tire ou escolha a foto da célula");
     setError("");
-    actions.addMeeting.mutate({ cell_id: cell.id, member_id: cell.member_id, date: f.date, lives, offering, photo, people }, { onSuccess: onDone });
+    actions.addMeeting.mutate({ cell_id: cell.id, member_id: cell.member_id, date: f.date, lives, offering, photo, people }, { onSuccess: () => { if (offering > 0) requestPartnerShare(); onDone?.(); } });
   }
   return <form onSubmit={submit} className="mt-3 space-y-3 rounded-md bg-secondary p-4">
     {cam && <CameraCapture onPhoto={setPhoto} onClose={() => setCam(false)} />}

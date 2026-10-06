@@ -1,4 +1,5 @@
 import { ChevronRight, Heart, HeartOff, Plus, X, Pencil, Search, Trash2, UserPlus } from "lucide-react";
+import { requestPartnerShare } from "@/components/report-export";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -214,7 +215,7 @@ export function EntryForm({ net, memberId, month, editing, actions, onDone }: { 
     if (!isMoney && !Number.isInteger(r.data.value)) { setError("A arregimentação deve ser um número inteiro de pessoas"); return; }
     if (!isEntryDateValid(r.data.date, r.data.kind)) { setError(`A data deve ser ${r.data.kind === "familia" ? "um domingo" : r.data.kind === "arena" ? "um sábado" : "uma terça-feira"} para este culto.`); return; }
     setError("");
-    const after = { onSuccess: () => { setForm((f) => ({ ...f, value: "", note: "" })); setPeople([]); onDone?.(); } };
+    const after = { onSuccess: () => { setForm((f) => ({ ...f, value: "", note: "" })); setPeople([]); if (isMoney) requestPartnerShare(); onDone?.(); } };
     if (editing) actions.updateEntry.mutate({ id: editing.id, member_id: editing.member_id, ...r.data, people: isMoney ? [] : people }, after);
     else actions.addEntry.mutate({ member_id: memberId, ...r.data, people: isMoney ? [] : people }, after);
   }
