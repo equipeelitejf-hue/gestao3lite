@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Check, ChevronDown, Clock3, Download, Goal, Home, MapPin as Home2, LogOut, Menu, Plus, Target, TrendingUp, UserPlus, UserRound, UsersRound, X } from "lucide-react";
+import { Check, ChevronDown, Clock3, Goal, Home, MapPin as Home2, LogOut, Menu, Plus, Target, TrendingUp, UserPlus, UserRound, UsersRound, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import logoBlue from "@/assets/logotipo-azul.svg.asset.json";
@@ -8,6 +8,7 @@ import symbolOrange from "@/assets/simbolo-laranja.svg.asset.json";
 import symbolWhite from "@/assets/simbolo-branco.svg.asset.json";
 import { Avatar, Bar, EmptyState, EntryForm, EntryList, GoalsEditor, MemberSheet, NetworkTree, TeamManager, levelLabel } from "@/components/network-panels";
 import { CellsView, CoLeaderCard } from "@/components/cells-panel";
+import { ReportExportMenu } from "@/components/report-export";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { KIND_LABEL, brl, currentMonth, initials, monthLabel, monthOptions, num, pct, useActions, useMe, useNetwork, type Actions, type Entry, type Member, type Network } from "@/lib/network";
@@ -60,22 +61,6 @@ export function MinisterialDashboard() {
     navigate({ to: "/auth", replace: true });
   }
 
-  function exportReport() {
-    if (!net || !member) return;
-    const rows = ["Nome,E-mail,Nível,Meta Parceiro de Deus,Parceiro de Deus,Terça da Fé,Arena,Culto da Família,Membresia"];
-    for (const p of net.members) {
-      const t = net.ownTotals(p.id);
-      rows.push([`"${p.name.replace(/"/g, "'")}"`, p.email, levelLabel(p.level), net.goalOf(p.id).oferta, t.oferta, t.terca, t.arena, t.familia, t.membresia].join(","));
-    }
-    const url = URL.createObjectURL(new Blob(["\uFEFF" + rows.join("\n")], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `relatorio-ministerial-${month}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setNotice("Relatório exportado.");
-  }
-
   const splash = <div className={cn("fixed inset-0 z-50 grid place-items-center bg-navy transition-all duration-700", splashVisible ? "visible opacity-100" : "invisible scale-105 opacity-0")} aria-hidden={!splashVisible}>
     <div className="flex flex-col items-center gap-7">
       <img src={symbolWhite.url} alt="" className="splash-symbol h-28 w-auto sm:h-36" />
@@ -122,12 +107,12 @@ export function MinisterialDashboard() {
         <main className="min-w-0 flex-1 px-4 pb-28 pt-7 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">
           <MonthSelect value={month} options={months} onChange={setMonth} className="mb-5 h-10 w-full sm:hidden" />
           {!member || !net ? (netQ.isError ? <EmptyState title="Não foi possível carregar o circuito" text="Tente novamente em instantes." action={<Button onClick={() => netQ.refetch()}>Tentar novamente</Button>} /> : <LoadingBlock />) : <div className="animate-fade-in min-w-0 w-full">
-            {tab === "overview" && (isRoot ? <LeaderView net={net} me={member} month={month} onExport={exportReport} onSelect={setSelected} onTab={setTab} /> : <DiscipleView net={net} me={member} onTab={setTab} />)}
+            {tab === "overview" && (isRoot ? <LeaderView net={net} me={member} month={month} onSelect={setSelected} onTab={setTab} /> : <DiscipleView net={net} me={member} onTab={setTab} />)}
             {tab === "entries" && <EntriesView net={net} me={member} month={month} actions={actions} />}
             {tab === "team" && <><PageHeading eyebrow="Cadastro" title="Minha equipe" description="Cadastre, edite ou remova os seus discípulos diretos." /><div className="mt-8">{isRoot && isAdmin && <CoLeaderCard net={net} rootId={member.id} actions={actions} />}<TeamManager net={net} parentId={member.id} actions={actions} onSelect={setSelected} /></div></>}
             {tab === "goals" && <><PageHeading eyebrow="Metas" title={`Metas de ${monthLabel(month).toLowerCase()}`} description="Parceiro de Deus: meta de oferta definida com cada discípulo." /><div className="mt-8"><GoalsEditor net={net} month={month} parentId={member.id} isAdmin={isAdmin && isRoot} actions={actions} /></div></>}
             {tab === "cells" && <><PageHeading eyebrow="Células" title="Minhas células" description="Cadastre células e lance os encontros com foto." /><div className="mt-8"><CellsView net={net} memberId={member.id} month={month} actions={actions} /></div></>}
-            {tab === "network" && <><PageHeading eyebrow="Circuito" title="Meu circuito" description="Resultados somados automaticamente em toda a hierarquia." action={isRoot ? <Button variant="outline" onClick={exportReport}><Download className="size-4" />Exportar</Button> : undefined} /><div className="mt-8"><NetworkTree net={net} rootId={member.id} onSelect={setSelected} /></div></>}
+            {tab === "network" && <><PageHeading eyebrow="Circuito" title="Meu circuito" description="Resultados somados automaticamente em toda a hierarquia." action={isRoot ? <ReportExportMenu net={net} rootId={member.id} month={month} /> : undefined} /><div className="mt-8"><NetworkTree net={net} rootId={member.id} onSelect={setSelected} /></div></>}
           </div>}
         </main>
       </div>
@@ -157,7 +142,7 @@ function LoadingBlock() {
   return <div className="space-y-4">{[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-lg bg-muted" />)}</div>;
 }
 
-function LeaderView({ net, me, month, onExport, onSelect, onTab }: { net: Network; me: Member; month: string; onExport: () => void; onSelect: (id: string) => void; onTab: (t: Tab) => void }) {
+function LeaderView({ net, me, month, onSelect, onTab }: { net: Network; me: Member; month: string; onSelect: (id: string) => void; onTab: (t: Tab) => void }) {
   const t = net.treeTotals(me.id);
   const teamGoal = net.teamGoal;
   const directs = net.childrenOf(me.id).map((p) => ({ p, t: net.treeTotals(p.id), g: net.treeGoal(p.id).oferta })).sort((a, b) => b.t.membresia - a.t.membresia);
@@ -172,7 +157,7 @@ function LeaderView({ net, me, month, onExport, onSelect, onTab }: { net: Networ
     { label: "Circuito ministerial", value: String(size), note: `${directs.length} diretos · ${level2} no 2º nível`, icon: UserRound },
   ];
   return <div>
-    <PageHeading eyebrow="Painel do líder" title={`Olá, ${me.name.split(" ")[0]}`} description={`Resultados de ${monthLabel(month).toLowerCase()} somados em todo o circuito.`} action={<Button onClick={onExport}><Download className="size-4" />Exportar relatório</Button>} />
+    <PageHeading eyebrow="Painel do líder" title={`Olá, ${me.name.split(" ")[0]}`} description={`Resultados de ${monthLabel(month).toLowerCase()} somados em todo o circuito.`} action={<ReportExportMenu net={net} rootId={me.id} month={month} />} />
     <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{cards.map((item) => <SummaryCard key={item.label} {...item} />)}</div>
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
       <section className="rounded-lg border border-border bg-card p-5 shadow-card sm:p-7">
