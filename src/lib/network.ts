@@ -196,28 +196,33 @@ const MEMBER_COLS = "id, user_id, parent_id, spouse_id, name, email, level";
 export function useMe() {
   return useQuery({
     queryKey: ["me"],
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
     queryFn: async (): Promise<Me> => {
       const { data: auth } = await supabase.auth.getUser();
       const user = auth.user;
       if (!user) throw new Error("Sessão expirada");
-      const name = typeof user.user_metadata?.["name"] === "string" ? (user.user_metadata["name"] as string) : "";
-      const { data: id, error } = await supabase.rpc("claim_membership", { _name: name });
-      if (error) throw error;
-      let member: Member | null = null;
-      if (id) {
-        const { data } = await supabase.from("members").select(MEMBER_COLS).eq("id", id).maybeSingle();
-        member = data;
-      }
+
+      // A identidade do membro deve vir do UID autenticado, nunca do nome.
+      // Isso evita que uma conta nova reutilize o cadastro de outra pessoa.
+      const { data: member, error: memberError } = await supabase
+        .from("members")
+        .select(MEMBER_COLS)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (memberError) throw memberError;
+
       const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
       return { member, isAdmin: !!roles?.some((r) => r.role === "admin"), email: user.email ?? "" };
     },
   });
 }
 
-export function useNetwork(month: string, enabled: boolean) {
+export function useNetwork(month: string, memberId: string | null) {
   return useQuery({
-    queryKey: ["network", month],
-    enabled,
+    queryKey: ["network", memberId, month],
+    enabled: !!memberId,
     queryFn: async () => {
       const [members, entries, goals, team, cells, meetings, visits] = await Promise.all([
         supabase.from("members").select(MEMBER_COLS),
