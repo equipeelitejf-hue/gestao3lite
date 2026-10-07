@@ -39,7 +39,7 @@ export function MinisterialDashboard() {
 
   const me = useMe();
   const member = me.data?.member ?? null;
-  const netQ = useNetwork(month, !!member);
+  const netQ = useNetwork(month, member?.id ?? null);
   const net = netQ.data;
   const actions = useActions(setNotice);
 
