@@ -212,8 +212,12 @@ export function PartnerShareWatcher({ net, rootId, month }: { net: Network; root
       const { data } = await supabase.rpc("team_partner_summary", { _month: month });
       if (data?.length) {
         const list = data.filter((r) => !r.is_total).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-        rows = list.map((r) => ({ name: r.name, result: brl(Number(r.result)), goal: brl(Number(r.goal)), progress: pct(Number(r.result), Number(r.goal)) }));
-        total = Number(data.find((r) => r.is_total)?.result ?? total);
+        const teamRows = list.map((r) => ({ name: r.name, result: brl(Number(r.result)), goal: brl(Number(r.goal)), progress: pct(Number(r.result), Number(r.goal)) }));
+        // A liderança (Jonas + Vanessa, quando casal) também faz parte do relatório.
+        const leader = partnerRows(net, rootId)[0];
+        rows = leader ? [leader, ...teamRows.filter((r) => r.name !== leader.name)] : teamRows;
+        // O total deve corresponder exatamente à soma do que aparece na imagem.
+        total = rows.reduce((sum, r) => sum + Number(r.result.replace(/[^0-9,-]/g, "").replace(".", "").replace(",", ".")), 0);
       }
       setTotal(total);
       const blob = await canvasBlob(drawPage(month, { title: "Parceiro de Deus", rows }, rows, "Parceiro de Deus", true, undefined, "DISCÍPULO", brl(total)), "image/png");
