@@ -44,8 +44,9 @@ export function ReportExportMenu({ net, rootId, month }: { net: Network; rootId:
         const individualPage = drawPage(month, section, section.rows, "Resultado individual do ciclo", false, undefined, "INDICADOR");
         download(await makePdf([individualPage]), `relatorio-${slug(name)}-${month}.pdf`);
       } else if (kind === "partner") {
-        const section = sections[2]!;
-        download(await canvasBlob(drawPage(month, section, section.rows, "Parceiro de Deus", true), "image/png"), `parceiro-de-deus-${month}.png`);
+        const rows = partnerRows(net, rootId);
+        const total = net.treeTotals(rootId).oferta;
+        download(await canvasBlob(drawPage(month, { title: "Parceiro de Deus", rows }, rows, "Parceiro de Deus", true, undefined, "DISCÍPULO", brl(total)), "image/png"), `parceiro-de-deus-${month}.png`);
       } else {
         download(await makePdf(renderPages(month, sections)), `relatorio-geral-${month}.pdf`);
       }
@@ -100,9 +101,9 @@ function renderPages(month: string, sections: Section[], subtitle?: string) {
   return pages;
 }
 
-function drawPage(month: string, section: Section, rows: Row[], subtitle?: string, tall = false, continuation?: string, firstColumn = "DISCÍPULO") {
+function drawPage(month: string, section: Section, rows: Row[], subtitle?: string, tall = false, continuation?: string, firstColumn = "DISCÍPULO", totalResult?: string) {
   const width = 1080, rowHeight = tall ? 82 : 74;
-  const height = tall ? Math.max(1100, 700 + rows.length * rowHeight) : 1920;
+  const height = tall ? Math.max(1100, 760 + rows.length * rowHeight + (totalResult ? 90 : 0)) : 1920;
   const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext("2d"); if (!ctx) throw new Error("Não foi possível preparar a imagem.");
   const gradient = ctx.createLinearGradient(0, 0, 0, tall ? 600 : 700);
@@ -128,6 +129,12 @@ function drawPage(month: string, section: Section, rows: Row[], subtitle?: strin
     ctx.fillStyle = "#e5ebef"; ctx.fillRect(144, y + 44, 790, 1);
   }
   if (!rows.length) { ctx.fillStyle = "#6f7e88"; ctx.font = "400 24px Arial, sans-serif"; ctx.fillText("Nenhum discípulo cadastrado neste circuito.", 144, y0 + 90, 760); }
+  if (totalResult) {
+    const totalY = y0 + 78 + rows.length * rowHeight + 18;
+    ctx.fillStyle = orange; ctx.fillRect(144, totalY - 34, 790, 2);
+    ctx.fillStyle = navy; ctx.font = "700 28px Arial, sans-serif"; ctx.fillText("TOTAL GERAL", 144, totalY + 10);
+    ctx.fillStyle = navy; ctx.font = "700 26px Arial, sans-serif"; ctx.fillText(totalResult, 600, totalY + 10);
+  }
   return canvas;
 }
 
@@ -180,10 +187,15 @@ const shareListeners = new Set<() => void>();
 export function requestPartnerShare() { pendingShare = true; shareListeners.forEach((fn) => fn()); }
 
 function partnerRows(net: Network, rootId: string): Row[] {
-  const units = net.members.filter((m) => m.id !== rootId && net.inTree(rootId, m.id) && net.unitKey(m.id) === m.id)
+  const root = net.person(rootId);
+  const units = net.members
+    .filter((m) => m.id !== rootId && net.inTree(rootId, m.id) && net.unitKey(m.id) === m.id)
     .sort((a, b) => net.unitName(a.id).localeCompare(net.unitName(b.id), "pt-BR"));
-  const list = units.length ? units : net.members.filter((m) => m.id === rootId);
-  return list.map((m) => { const t = net.ownTotals(m.id), g = net.goalOf(m.id).oferta; return { name: net.unitName(m.id), result: brl(t.oferta), goal: brl(g), progress: pct(t.oferta, g) }; });
+  const rows = root ? [root, ...units] : units;
+  return rows.map((m) => {
+    const t = net.ownTotals(m.id), g = net.goalOf(m.id).oferta;
+    return { name: net.unitName(m.id), result: brl(t.oferta), goal: brl(g), progress: pct(t.oferta, g) };
+  });
 }
 
 export function PartnerShareWatcher({ net, rootId, month }: { net: Network; rootId: string; month: string }) {
@@ -204,7 +216,7 @@ export function PartnerShareWatcher({ net, rootId, month }: { net: Network; root
         total = Number(data.find((r) => r.is_total)?.result ?? total);
       }
       setTotal(total);
-      const blob = await canvasBlob(drawPage(month, { title: "Parceiro de Deus", rows }, rows, `Total ${brl(total)}`, true), "image/png");
+      const blob = await canvasBlob(drawPage(month, { title: "Parceiro de Deus", rows }, rows, "Parceiro de Deus", true, undefined, "DISCÍPULO", brl(total)), "image/png");
       const f = new File([blob], `parceiro-de-deus-${month}.png`, { type: "image/png" });
       download(blob, f.name); setFile(f);
     };
